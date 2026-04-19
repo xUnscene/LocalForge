@@ -19,9 +19,10 @@ class ComfyUIManager:
             return 'not_installed'
         if self._process is None:
             return 'stopped'
-        if self._process.poll() is not None:
+        returncode = self._process.poll()
+        if returncode is not None:
             self._process = None
-            return 'error'
+            return 'stopped' if returncode == 0 else 'error'
         return 'running'
 
     def start(self) -> bool:

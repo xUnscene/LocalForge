@@ -24,5 +24,6 @@ def engine_start(request: Request) -> dict:
 
 @router.post('/stop')
 def engine_stop(request: Request) -> dict:
-    _manager(request).stop()
-    return {'status': 'stopped'}
+    manager = _manager(request)
+    manager.stop()
+    return {'status': manager.get_status()}
