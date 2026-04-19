@@ -37,6 +37,6 @@ export const useGenerateStore = create<GenerateState>((set) => ({
   setSubject: (s) => set({ subject: s }),
   setStyle: (s) => set({ style: s }),
   setShotField: (field, value) => set((state) => ({ shot: { ...state.shot, [field]: value } })),
-  setGenerationResult: (result) => set(result),
+  setGenerationResult: (result) => set((state) => ({ ...state, ...result })),
   resetGeneration: () => set({ status: 'idle', progress: 0, seed: null, outputImagePath: null, lastError: null }),
 }))
