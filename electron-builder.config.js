@@ -3,5 +3,8 @@ module.exports = {
   productName: 'LocalForge',
   directories: { output: 'dist' },
   win: { target: 'nsis', icon: 'resources/icon.ico' },
-  nsis: { oneClick: false, allowToChangeInstallationDirectory: true }
+  nsis: { oneClick: false, allowToChangeInstallationDirectory: true },
+  extraResources: [
+    { from: 'sidecar/dist/localforge-sidecar.exe', to: 'localforge-sidecar.exe' }
+  ]
 }
