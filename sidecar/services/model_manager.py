@@ -83,6 +83,7 @@ class ModelManager:
             p = self._progress.get(model_id, ModelProgress())
             return replace(p)
 
+    # Cancellation is not supported in v1 — a started download runs to completion or error.
     def start_install(self, model_id: str) -> str | None:
         """Returns error string if busy or model unknown, else None."""
         model = self._find(model_id)
@@ -103,19 +104,24 @@ class ModelManager:
         model = self._find(model_id)
         if model is None:
             return f'Unknown model: {model_id}'
+        with self._lock:
+            t = self._threads.get(model_id)
+            if t and t.is_alive():
+                return 'Cannot remove: download in progress'
         path = self._model_path(model)
         if not os.path.isfile(path):
             return 'Model not installed'
+        # Also clean up any stale .part file
+        part_path = path + '.part'
+        if os.path.exists(part_path):
+            os.remove(part_path)
         os.remove(path)
         return None
 
     def _set_progress(self, model_id: str, **kwargs) -> None:
         with self._lock:
-            if model_id not in self._progress:
-                self._progress[model_id] = ModelProgress()
-            p = self._progress[model_id]
-            for k, v in kwargs.items():
-                setattr(p, k, v)
+            current = self._progress.get(model_id, ModelProgress())
+            self._progress[model_id] = replace(current, **kwargs)
 
     def _download(self, model: dict) -> None:
         model_id = model['id']
@@ -123,7 +129,8 @@ class ModelManager:
         part_path = dest_path + '.part'
         try:
             os.makedirs(self._checkpoints_dir(), exist_ok=True)
-            with httpx.stream('GET', model['repo'], follow_redirects=True, timeout=600.0) as r:
+            with httpx.stream('GET', model['repo'], follow_redirects=True,
+                              timeout=httpx.Timeout(connect=30.0, read=120.0)) as r:
                 r.raise_for_status()
                 total = int(r.headers.get('content-length', 0))
                 downloaded = 0
@@ -133,6 +140,9 @@ class ModelManager:
                         downloaded += len(chunk)
                         if total:
                             self._set_progress(model_id, percent=int(downloaded / total * 100))
+                        else:
+                            # Content-length missing — show indeterminate progress
+                            self._set_progress(model_id, percent=-1)
             os.replace(part_path, dest_path)
             self._set_progress(model_id, status='complete', percent=100)
         except Exception as e:
