@@ -51,17 +51,19 @@ class SetupInstaller:
     def _download(self, url: str, dest_path: str, phase: str) -> None:
         os.makedirs(os.path.dirname(dest_path), exist_ok=True)
         self._set(phase, 0)
+        part_path = dest_path + '.part'
         with httpx.stream('GET', url, follow_redirects=True, timeout=300) as r:
             r.raise_for_status()
             total = int(r.headers.get('content-length', 0))
             downloaded = 0
-            with open(dest_path, 'wb') as f:
+            with open(part_path, 'wb') as f:
                 for chunk in r.iter_bytes(chunk_size=65536):
                     f.write(chunk)
                     downloaded += len(chunk)
                     if total:
                         with self._lock:
                             self._progress.percent = int(downloaded / total * 100)
+        os.replace(part_path, dest_path)
 
     def _extract(self, zip_path: str, dest_dir: str, phase: str) -> None:
         self._set(phase, 0)
@@ -73,7 +75,10 @@ class SetupInstaller:
                 target = member[len(prefix):]
                 if not target:
                     continue
-                target_path = os.path.join(dest_dir, target)
+                target_path = os.path.realpath(os.path.join(dest_dir, target))
+                real_dest = os.path.realpath(dest_dir)
+                if not target_path.startswith(real_dest + os.sep) and target_path != real_dest:
+                    raise ValueError(f'Path traversal detected in ZIP: {member}')
                 if member.endswith('/'):
                     os.makedirs(target_path, exist_ok=True)
                 else:
