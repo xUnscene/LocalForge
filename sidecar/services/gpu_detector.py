@@ -20,7 +20,7 @@ def detect_gpu() -> GpuInfo | None:
         if result.returncode != 0:
             return None
         line = result.stdout.strip().splitlines()[0]
-        name, vram_mb = line.split(', ')
+        name, vram_mb = line.rsplit(', ', 1)
         vram_gb = round(int(vram_mb.strip()) / 1024, 1)
         return GpuInfo(name=name.strip(), vram_gb=vram_gb, sufficient=vram_gb >= 8)
     except (subprocess.TimeoutExpired, FileNotFoundError, ValueError, IndexError):

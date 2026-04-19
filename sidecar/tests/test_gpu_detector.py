@@ -34,3 +34,11 @@ def test_detect_gpu_returns_none_when_nvidia_smi_missing():
 def test_detect_gpu_returns_none_when_nonzero_exit():
     with patch('subprocess.run', return_value=_mock_run('', returncode=1)):
         assert detect_gpu() is None
+
+
+def test_detect_gpu_exactly_8gb_is_sufficient():
+    with patch('subprocess.run', return_value=_mock_run('NVIDIA GeForce RTX 3070, 8192\n')):
+        info = detect_gpu()
+    assert info is not None
+    assert info.vram_gb == 8.0
+    assert info.sufficient is True
