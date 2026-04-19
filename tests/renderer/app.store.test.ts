@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { useAppStore } from '../../src/renderer/src/store/app.store'
 
 describe('AppStore', () => {
-  beforeEach(() => useAppStore.setState({ activeScreen: 'generate' }))
+  beforeEach(() => useAppStore.setState({ activeScreen: 'generate', setupComplete: null }))
 
   it('defaults to generate screen', () => {
     expect(useAppStore.getState().activeScreen).toBe('generate')
@@ -21,5 +21,14 @@ describe('AppStore', () => {
   it('navigates to settings screen', () => {
     useAppStore.getState().navigate('settings')
     expect(useAppStore.getState().activeScreen).toBe('settings')
+  })
+
+  it('defaults setupComplete to null', () => {
+    expect(useAppStore.getState().setupComplete).toBeNull()
+  })
+
+  it('setSetupComplete sets the flag', () => {
+    useAppStore.getState().setSetupComplete(true)
+    expect(useAppStore.getState().setupComplete).toBe(true)
   })
 })

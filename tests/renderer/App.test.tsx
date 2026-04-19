@@ -6,7 +6,8 @@ import { useAppStore } from '../../src/renderer/src/store/app.store'
 
 describe('App', () => {
   beforeEach(() => {
-    useAppStore.setState({ activeScreen: 'generate' })
+    // setupComplete: true prevents SetupWizard from rendering, keeping tests simple
+    useAppStore.setState({ activeScreen: 'generate', setupComplete: true })
   })
 
   it('shows Generate screen by default', () => {
