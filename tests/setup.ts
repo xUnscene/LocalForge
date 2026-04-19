@@ -14,5 +14,8 @@ if (typeof window !== 'undefined') {
     setup: {
       isComplete: vi.fn().mockResolvedValue(true),
     },
+    generate: {
+      saveRecord: vi.fn().mockResolvedValue({ success: true }),
+    },
   })
 }

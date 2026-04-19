@@ -1,6 +1,6 @@
 import { ipcMain } from 'electron'
 import { app } from 'electron'
-import { getDatabase } from './database'
+import { getDatabase, insertGeneration, GenerationRecord } from './database'
 import { getSidecarPort, getSidecarStatus } from './sidecar'
 import { isSetupComplete } from './setup'
 
@@ -19,5 +19,10 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('setup:isComplete', () => {
     return isSetupComplete(app.getPath('userData'))
+  })
+
+  ipcMain.handle('generate:saveRecord', (_event, record: GenerationRecord) => {
+    insertGeneration(record)
+    return { success: true }
   })
 }

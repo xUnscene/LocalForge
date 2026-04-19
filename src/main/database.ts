@@ -24,6 +24,32 @@ export function getDatabase(): DB {
   return db
 }
 
+export interface GenerationRecord {
+  id: string
+  prompt: string
+  seed: number
+  model: string
+  output_path: string
+  thumbnail_path: string
+  created_at: number
+}
+
+export function insertGeneration(record: GenerationRecord): void {
+  const db = getDatabase()
+  db.prepare(`
+    INSERT INTO generations (id, prompt, seed, model, output_path, thumbnail_path, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    record.id,
+    record.prompt,
+    record.seed,
+    record.model,
+    record.output_path,
+    record.thumbnail_path,
+    record.created_at,
+  )
+}
+
 export function closeDatabase(): void {
   db?.close()
   db = undefined

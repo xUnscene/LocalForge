@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { join } from 'path'
 import { mkdtempSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
-import { initDatabase, getDatabase, closeDatabase } from '../../src/main/database'
+import { initDatabase, getDatabase, closeDatabase, insertGeneration } from '../../src/main/database'
 
 let tmpDir: string
 
@@ -51,5 +51,22 @@ describe('database', () => {
     const rows = db.prepare('SELECT * FROM generations ORDER BY created_at DESC').all() as Array<{ id: string }>
     expect(rows[0].id).toBe('id-2')
     expect(rows[1].id).toBe('id-1')
+  })
+
+  it('insertGeneration saves a record correctly', () => {
+    insertGeneration({
+      id: 'gen-test-1',
+      prompt: 'a cat in rain',
+      seed: 42,
+      model: 'z-image',
+      output_path: '/output/test.png',
+      thumbnail_path: '',
+      created_at: 9999,
+    })
+    const db = getDatabase()
+    const row: any = db.prepare('SELECT * FROM generations WHERE id = ?').get('gen-test-1')
+    expect(row.prompt).toBe('a cat in rain')
+    expect(row.seed).toBe(42)
+    expect(row.model).toBe('z-image')
   })
 })
