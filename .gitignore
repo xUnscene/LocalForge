@@ -9,3 +9,4 @@ localforge/node_modules/
 localforge/dist/
 localforge/out/
 
+.worktrees/
