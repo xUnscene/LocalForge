@@ -96,11 +96,11 @@ export function Generate() {
           if (event.status === 'complete' && event.output_path) {
             await window.localforge.generate.saveRecord({
               id: crypto.randomUUID(),
-              prompt: subject,
+              prompt: event.prompt ?? subject,
               seed: event.seed,
               model: 'z-image',
               output_path: event.output_path,
-              thumbnail_path: '',
+              thumbnail_path: '',  // thumbnails generated in Plan 6 (Library)
               created_at: Date.now(),
             })
           }

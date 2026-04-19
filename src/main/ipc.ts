@@ -22,6 +22,11 @@ export function registerIpcHandlers(): void {
   })
 
   ipcMain.handle('generate:saveRecord', (_event, record: GenerationRecord) => {
+    if (!record || typeof record.id !== 'string' || !record.id ||
+        typeof record.prompt !== 'string' || typeof record.seed !== 'number' ||
+        typeof record.model !== 'string' || typeof record.output_path !== 'string') {
+      return { success: false, error: 'Invalid record' }
+    }
     insertGeneration(record)
     return { success: true }
   })

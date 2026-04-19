@@ -31,7 +31,7 @@ async def generate(request: Request) -> StreamingResponse:
 
     async def event_stream():
         if error:
-            data = json.dumps({'status': 'error', 'percent': 0, 'seed': seed, 'output_path': None, 'error': error})
+            data = json.dumps({'status': 'error', 'percent': 0, 'seed': seed, 'output_path': None, 'error': error, 'prompt': prompt})
             yield f'data: {data}\n\n'
             return
 
@@ -45,6 +45,7 @@ async def generate(request: Request) -> StreamingResponse:
                 'seed': p.seed,
                 'output_path': p.output_path,
                 'error': p.error,
+                'prompt': prompt,  # assembled prompt (subject + style + shot)
             })
             yield f'data: {data}\n\n'
             if p.status in ('complete', 'error'):
