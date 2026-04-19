@@ -1,15 +1,15 @@
 {
   "name": "localforge",
   "version": "1.0.0",
-  "description": "An Electron application with React and TypeScript",
+  "description": "LocalForge — local AI image generation studio",
   "main": "./out/main/index.js",
   "author": "Jon Eatmon",
-  "homepage": "https://electron-vite.org",
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "test": "vitest run",
+    "test:watch": "vitest",
     "test:ui": "vitest --ui",
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json --composite false",
