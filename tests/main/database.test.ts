@@ -1,4 +1,3 @@
-// @vitest-environment node
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { join } from 'path'
 import { mkdtempSync, rmSync } from 'fs'
