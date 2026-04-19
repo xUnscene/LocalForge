@@ -1,5 +1,6 @@
 import os
 import pytest
+from unittest.mock import MagicMock
 from services.comfyui_manager import ComfyUIManager
 
 
@@ -29,3 +30,14 @@ def test_status_is_stopped_when_installed_but_not_running(manager, tmp_path):
 
 def test_stop_is_safe_when_not_running(manager):
     manager.stop()  # should not raise
+
+
+def test_status_is_error_when_process_exits_unexpectedly(manager, tmp_path):
+    (tmp_path / 'ComfyUI').mkdir()
+    # Simulate a process that started but has now exited
+    mock_proc = MagicMock()
+    mock_proc.poll.return_value = 1  # non-None means process exited
+    manager._process = mock_proc
+
+    assert manager.get_status() == 'error'
+    assert manager._process is None  # should be cleaned up

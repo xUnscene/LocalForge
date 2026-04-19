@@ -37,8 +37,8 @@ class ComfyUIManager:
             [python, main_script, '--listen', '127.0.0.1',
              '--port', str(self.COMFYUI_PORT), '--disable-auto-launch'],
             cwd=self.comfyui_path,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
         )
         return True
 
@@ -49,4 +49,5 @@ class ComfyUIManager:
                 self._process.wait(timeout=10)
             except subprocess.TimeoutExpired:
                 self._process.kill()
+                self._process.wait()  # reap the terminated process
             self._process = None
