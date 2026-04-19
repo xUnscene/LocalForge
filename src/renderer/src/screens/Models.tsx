@@ -59,7 +59,8 @@ export function Models() {
       })
       if (!response.ok) throw new Error(`Install failed: ${response.status}`)
 
-      const reader = response.body!.getReader()
+      if (!response.body) throw new Error('Install response has no body')
+      const reader = response.body.getReader()
       readerRefs.current[modelId] = reader
       const decoder = new TextDecoder()
       let buffer = ''
