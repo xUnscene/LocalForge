@@ -45,6 +45,8 @@ def test_install_returns_error_sse_when_model_unknown(engine_dir):
 
     client = TestClient(app)
     with client.stream('POST', '/models/bad-model/install') as r:
+        assert r.status_code == 200
+        assert 'text/event-stream' in r.headers['content-type']
         r.read()
         content = r.text
 
