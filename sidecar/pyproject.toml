@@ -12,7 +12,6 @@ dependencies = [
 dev = [
     "pytest>=8.3",
     "pytest-asyncio>=0.25",
-    "httpx>=0.28",
 ]
 
 [tool.setuptools.packages.find]
