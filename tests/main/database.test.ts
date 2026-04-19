@@ -2,21 +2,21 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { join } from 'path'
 import { mkdtempSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
-import { initDatabase, getDatabase } from '../../src/main/database'
+import { initDatabase, getDatabase, closeDatabase } from '../../src/main/database'
 
 let tmpDir: string
 
-beforeEach(() => {
-  tmpDir = mkdtempSync(join(tmpdir(), 'localforge-test-'))
-  initDatabase(join(tmpDir, 'test.db'))
-})
-
-afterEach(() => {
-  getDatabase().close()
-  rmSync(tmpDir, { recursive: true })
-})
-
 describe('database', () => {
+  beforeEach(() => {
+    tmpDir = mkdtempSync(join(tmpdir(), 'localforge-test-'))
+    initDatabase(join(tmpDir, 'test.db'))
+  })
+
+  afterEach(() => {
+    closeDatabase()
+    rmSync(tmpDir, { recursive: true })
+  })
+
   it('creates generations table', () => {
     const db = getDatabase()
     const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all()

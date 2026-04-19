@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3'
 import type { Database as DB } from 'better-sqlite3'
 
-let db: DB
+let db: DB | undefined
 
 export function initDatabase(dbPath: string): void {
   db = new Database(dbPath)
@@ -22,4 +22,9 @@ export function initDatabase(dbPath: string): void {
 export function getDatabase(): DB {
   if (!db) throw new Error('Database not initialized — call initDatabase() first')
   return db
+}
+
+export function closeDatabase(): void {
+  db?.close()
+  db = undefined
 }
