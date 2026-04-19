@@ -1,7 +1,7 @@
 import os
 import threading
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import httpx
 
@@ -26,13 +26,7 @@ class GenerationRunner:
     def get_progress(self) -> GenerationProgress:
         with self._lock:
             p = self._progress
-            return GenerationProgress(
-                status=p.status,
-                percent=p.percent,
-                seed=p.seed,
-                output_path=p.output_path,
-                error=p.error,
-            )
+            return replace(p)
 
     def start(self, workflow: dict, seed: int) -> str | None:
         """Start generation. Returns error string if already running, else None."""
@@ -40,7 +34,7 @@ class GenerationRunner:
             if self._thread and self._thread.is_alive():
                 return 'Generation already in progress'
             self._progress = GenerationProgress(status='queued', seed=seed)
-        self._thread = threading.Thread(target=self._run, args=(workflow, seed), daemon=True)
+            self._thread = threading.Thread(target=self._run, args=(workflow, seed), daemon=True)
         self._thread.start()
         return None
 
@@ -59,12 +53,14 @@ class GenerationRunner:
             r.raise_for_status()
             prompt_id = r.json()['prompt_id']
 
-            total = workflow.get('5', {}).get('inputs', {}).get('steps', 20)
+            # Node '5' is the KSampler by convention in LocalForge workflows
+            total = max(workflow.get('5', {}).get('inputs', {}).get('steps', 20), 1)
             step = 0
 
             while True:
                 time.sleep(0.5)
                 r = httpx.get(f'{self.comfyui_url}/history/{prompt_id}', timeout=5.0)
+                r.raise_for_status()
                 history = r.json()
 
                 if prompt_id not in history:
