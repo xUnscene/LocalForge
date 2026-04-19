@@ -6,6 +6,8 @@ ASPECT_RATIOS: dict[str, tuple[int, int]] = {
     '3:2': (1152, 768),
 }
 
+DEFAULT_CHECKPOINT = 'zimage.safetensors'
+
 _STYLE_PROMPTS: dict[str, str] = {
     'cinematic': 'cinematic photography, high contrast, film grain, dramatic lighting',
     'studio_portrait': 'studio portrait photography, professional lighting, clean background, sharp focus',
@@ -20,6 +22,7 @@ _STYLE_PROMPTS: dict[str, str] = {
 
 def assemble_prompt(subject: str, style: str, shot: dict) -> str:
     parts = [subject.strip()]
+    # Unknown styles are silently dropped — style options are a fixed closed set defined in the UI
     if style and style in _STYLE_PROMPTS:
         parts.append(_STYLE_PROMPTS[style])
     shot_parts = []
@@ -39,7 +42,7 @@ def build_workflow(prompt: str, seed: int, ratio: str) -> dict:
     return {
         '1': {
             'class_type': 'CheckpointLoaderSimple',
-            'inputs': {'ckpt_name': 'zimage.safetensors'},
+            'inputs': {'ckpt_name': DEFAULT_CHECKPOINT},
         },
         '2': {
             'class_type': 'CLIPTextEncode',

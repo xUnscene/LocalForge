@@ -37,3 +37,9 @@ def test_build_workflow_uses_correct_dimensions_for_ratio():
     w1_1 = build_workflow('x', seed=0, ratio='1:1')
     assert w1_1['4']['inputs']['width'] == 1024
     assert w1_1['4']['inputs']['height'] == 1024
+
+
+def test_build_workflow_falls_back_to_16_9_for_unknown_ratio():
+    workflow = build_workflow('x', seed=0, ratio='invalid')
+    assert workflow['4']['inputs']['width'] == 1280
+    assert workflow['4']['inputs']['height'] == 720
