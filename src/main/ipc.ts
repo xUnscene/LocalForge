@@ -1,6 +1,8 @@
 import { ipcMain } from 'electron'
+import { app } from 'electron'
 import { getDatabase } from './database'
 import { getSidecarPort, getSidecarStatus } from './sidecar'
+import { isSetupComplete } from './setup'
 
 export function registerIpcHandlers(): void {
   ipcMain.handle('db:getAllGenerations', () => {
@@ -13,5 +15,9 @@ export function registerIpcHandlers(): void {
       status: getSidecarStatus(),
       port: getSidecarPort(),
     }
+  })
+
+  ipcMain.handle('setup:isComplete', () => {
+    return isSetupComplete(app.getPath('userData'))
   })
 }

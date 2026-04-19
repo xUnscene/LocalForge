@@ -7,6 +7,9 @@ export const api = {
   sidecar: {
     getStatus: () => ipcRenderer.invoke('sidecar:getStatus'),
   },
+  setup: {
+    isComplete: () => ipcRenderer.invoke('setup:isComplete'),
+  },
 }
 
 contextBridge.exposeInMainWorld('localforge', api)
