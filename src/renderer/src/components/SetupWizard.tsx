@@ -44,8 +44,12 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
   }, [])
 
   const fetchGpuInfo = async (port: number) => {
-    const r = await fetch(`http://127.0.0.1:${port}/setup/gpu-info`)
-    setGpuInfo(await r.json())
+    try {
+      const r = await fetch(`http://127.0.0.1:${port}/setup/gpu-info`)
+      setGpuInfo(await r.json())
+    } catch {
+      setGpuInfo({ detected: false, name: null, vram_gb: null, sufficient: false })
+    }
   }
 
   const handleGetStarted = () => {
@@ -60,9 +64,15 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
     }
   }
 
-  const startInstall = () => {
+  const startInstall = async () => {
     if (!sidecarPort) return
-    fetch(`http://127.0.0.1:${sidecarPort}/setup/install`, { method: 'POST' })
+    try {
+      const r = await fetch(`http://127.0.0.1:${sidecarPort}/setup/install`, { method: 'POST' })
+      if (!r.ok) throw new Error(`Install request failed: ${r.status}`)
+    } catch (e) {
+      setProgress({ phase: 'error', percent: 0, error: String(e) })
+      return
+    }
     const es = new EventSource(`http://127.0.0.1:${sidecarPort}/setup/progress`)
     esRef.current = es
     es.onmessage = (e) => {
