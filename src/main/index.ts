@@ -3,6 +3,7 @@ import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { initDatabase } from './database'
 import { registerIpcHandlers } from './ipc'
+import { startSidecar, stopSidecar } from './sidecar'
 
 function createWindow(): void {
   const win = new BrowserWindow({
@@ -37,13 +38,17 @@ function createWindow(): void {
   }
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   electronApp.setAppUserModelId('com.localforge.app')
   app.on('browser-window-created', (_, win) => optimizer.watchShortcuts(win))
 
   const dbPath = join(app.getPath('userData'), 'localforge.db')
   initDatabase(dbPath)
   registerIpcHandlers()
+
+  startSidecar().catch((err) => {
+    console.error('Sidecar failed to start:', err)
+  })
 
   createWindow()
   app.on('activate', () => {
@@ -52,5 +57,6 @@ app.whenReady().then(() => {
 })
 
 app.on('window-all-closed', () => {
+  stopSidecar()
   if (process.platform !== 'darwin') app.quit()
 })
