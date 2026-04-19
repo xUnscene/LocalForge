@@ -1,0 +1,11 @@
+node_modules/
+.worktrees/
+dist/
+out/
+*.db
+.env
+.tmp/
+localforge/node_modules/
+localforge/dist/
+localforge/out/
+
