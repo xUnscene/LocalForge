@@ -1,3 +1,4 @@
+import pathlib
 import re
 import subprocess
 import sys
@@ -6,20 +7,26 @@ import time
 import httpx
 import pytest
 
+_SIDECAR_DIR = pathlib.Path(__file__).parent.parent  # sidecar/
+
 
 @pytest.fixture
 def running_sidecar():
     proc = subprocess.Popen(
-        [sys.executable, 'main.py'],
+        [sys.executable, str(_SIDECAR_DIR / 'main.py')],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
-        cwd='.',
+        cwd=str(_SIDECAR_DIR),
     )
     port = None
     deadline = time.time() + 10
     while time.time() < deadline:
+        if proc.poll() is not None:
+            pytest.fail(f'Sidecar exited (code {proc.returncode}) before reporting PORT')
         line = proc.stdout.readline()
+        if not line:
+            continue
         match = re.search(r'PORT=(\d+)', line)
         if match:
             port = int(match.group(1))

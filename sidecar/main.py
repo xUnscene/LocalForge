@@ -8,9 +8,10 @@ from app import create_app
 
 
 def find_free_port() -> int:
+    # NOTE: There is a small race between closing this probe socket and uvicorn
+    # binding the returned port. Acceptable for local-only use on Windows MVP.
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind(('', 0))
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         return s.getsockname()[1]
 
 
