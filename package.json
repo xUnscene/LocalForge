@@ -16,7 +16,10 @@
     "typecheck": "npm run typecheck:node && npm run typecheck:web",
     "postinstall": "electron-builder install-app-deps",
     "build:unpack": "npm run build && electron-builder --dir",
-    "build:win": "npm run build && electron-builder --win"
+    "build:win": "npm run build && electron-builder --win",
+    "build:sidecar": "cd sidecar && pip install pyinstaller --quiet && pyinstaller localforge-sidecar.spec --clean --noconfirm",
+    "dist:win": "electron-builder --win",
+    "build:release": "npm run build && npm run build:sidecar && npm run dist:win"
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
