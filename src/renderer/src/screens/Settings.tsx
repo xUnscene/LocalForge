@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import React, { useEffect } from 'react'
 import { useSettingsStore, ComfyStatus } from '../store/settings.store'
 
 export function Settings() {
@@ -44,6 +44,8 @@ export function Settings() {
       const res = await fetch(`http://127.0.0.1:${port}/engine/status`)
       const data = await res.json()
       setComfyStatus(data.status as ComfyStatus)
+    } catch {
+      setComfyStatus('error')
     } finally {
       setIsRestarting(false)
     }

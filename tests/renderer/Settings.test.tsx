@@ -4,6 +4,8 @@ import '@testing-library/jest-dom'
 import { Settings } from '../../src/renderer/src/screens/Settings'
 import { useSettingsStore } from '../../src/renderer/src/store/settings.store'
 
+// window.localforge IPC stubs (settings, app, sidecar, etc.) are provided by tests/setup.ts.
+// The port used in fetch URL assertions (8765) comes from the sidecar.getStatus mock in setup.ts.
 describe('Settings', () => {
   beforeEach(() => {
     vi.clearAllMocks()
