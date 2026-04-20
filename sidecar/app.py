@@ -1,6 +1,7 @@
 import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from services.comfyui_manager import ComfyUIManager
 from services.setup_installer import SetupInstaller
 from services.generation_runner import GenerationRunner
@@ -17,6 +18,12 @@ def create_app(engine_dir: str | None = None) -> FastAPI:
         app.state.manager.stop()
 
     app = FastAPI(title='LocalForge Sidecar', version='1.0.0', lifespan=lifespan)
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origin_regex=r'http://localhost:\d+',
+        allow_methods=['*'],
+        allow_headers=['*'],
+    )
     app.state.engine_dir = engine_dir
     app.state.manager = ComfyUIManager(engine_dir)
     app.state.installer = SetupInstaller(engine_dir)
