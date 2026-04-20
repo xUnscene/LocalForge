@@ -7,6 +7,7 @@ out
 
 # Python packaging artefacts
 sidecar/build/
+sidecar/dist/
 **/__pycache__/
 **/*.pyc
 .pytest_cache/

@@ -19,7 +19,15 @@ echo.
 REM -- Step 2: Build Python sidecar
 echo [2/3] Building Python sidecar (PyInstaller)...
 cd sidecar
+if !errorlevel! neq 0 (
+    echo ERROR: Cannot enter sidecar directory. Run this script from the project root.
+    exit /b 1
+)
 pip install pyinstaller --quiet
+if !errorlevel! neq 0 (
+    echo ERROR: pip install pyinstaller failed.
+    exit /b 1
+)
 pyinstaller localforge-sidecar.spec --clean --noconfirm
 if !errorlevel! neq 0 (
     echo ERROR: Sidecar build failed.
