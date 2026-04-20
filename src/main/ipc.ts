@@ -36,6 +36,7 @@ export function registerIpcHandlers(): void {
   })
 
   ipcMain.handle('settings:setOutputPath', (_event, path: string) => {
+    if (typeof path !== 'string' || !path.trim()) return
     setSettingValue('output_path', path)
   })
 
@@ -51,7 +52,11 @@ export function registerIpcHandlers(): void {
     return app.getVersion()
   })
 
-  ipcMain.handle('app:openExternal', (_event, url: string) => {
-    shell.openExternal(url)
+  ipcMain.handle('app:openExternal', async (_event, url: string) => {
+    let parsed: URL
+    try { parsed = new URL(url) } catch { return }
+    if (parsed.protocol === 'https:' || parsed.protocol === 'http:') {
+      await shell.openExternal(url)
+    }
   })
 }
