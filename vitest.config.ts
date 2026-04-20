@@ -5,6 +5,7 @@ export default defineConfig({
   plugins: [react()],
   test: {
     globals: true,
+    exclude: ['**/node_modules/**', '**/.worktrees/**'],
     setupFiles: ['./tests/setup.ts'],
     environmentMatchGlobs: [
       ['tests/main/**', 'node'],
