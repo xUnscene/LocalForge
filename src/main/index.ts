@@ -40,7 +40,7 @@ function createWindow(): void {
 
 app.whenReady().then(async () => {
   electronApp.setAppUserModelId('com.localforge.app')
-  app.on('browser-window-created', (_, win) => optimizer.watchShortcuts(win))
+  app.on('browser-window-created', (_, win) => optimizer.watchWindowShortcuts(win))
 
   const dbPath = join(app.getPath('userData'), 'localforge.db')
   initDatabase(dbPath)
