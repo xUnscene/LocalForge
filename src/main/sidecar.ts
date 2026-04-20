@@ -36,9 +36,22 @@ export function startSidecar(): Promise<number> {
     const cmd = is.dev ? 'py' : join(process.resourcesPath, 'localforge-sidecar.exe')
     const args = is.dev ? [scriptPath] : []
 
+    const { writeFileSync, appendFileSync } = require('fs')
+    const logPath = join(app.getPath('userData'), 'sidecar.log')
+    writeFileSync(logPath, `[start] cmd=${cmd} args=${JSON.stringify(args)}\n`)
+
     sidecarProcess = spawn(cmd, args, {
       stdio: ['ignore', 'pipe', 'pipe'],
       env: { ...process.env },
+    })
+
+    sidecarProcess.stderr!.on('data', (data: Buffer) => {
+      appendFileSync(logPath, `[stderr] ${data.toString()}`)
+      console.error('[sidecar stderr]', data.toString())
+    })
+
+    sidecarProcess.stdout!.on('data', (data: Buffer) => {
+      appendFileSync(logPath, `[stdout] ${data.toString()}`)
     })
 
     const timer = setTimeout(() => {
