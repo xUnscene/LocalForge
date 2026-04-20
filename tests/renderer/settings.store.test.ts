@@ -28,4 +28,22 @@ describe('SettingsStore', () => {
     useSettingsStore.getState().setOutputPath('C:\\outputs')
     expect(useSettingsStore.getState().outputPath).toBe('C:\\outputs')
   })
+
+  it('setAppVersion updates appVersion', () => {
+    useSettingsStore.getState().setAppVersion('1.2.0')
+    expect(useSettingsStore.getState().appVersion).toBe('1.2.0')
+  })
+
+  it('setIsRestarting updates isRestarting flag', () => {
+    useSettingsStore.getState().setIsRestarting(true)
+    expect(useSettingsStore.getState().isRestarting).toBe(true)
+    useSettingsStore.getState().setIsRestarting(false)
+    expect(useSettingsStore.getState().isRestarting).toBe(false)
+  })
+
+  it('setComfyStatus can be set back to null', () => {
+    useSettingsStore.getState().setComfyStatus('running')
+    useSettingsStore.getState().setComfyStatus(null)
+    expect(useSettingsStore.getState().comfyStatus).toBeNull()
+  })
 })
