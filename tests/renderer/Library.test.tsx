@@ -3,6 +3,8 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import '@testing-library/jest-dom'
 import { Library } from '../../src/renderer/src/screens/Library'
 import { useLibraryStore } from '../../src/renderer/src/store/library.store'
+import { useGenerateStore } from '../../src/renderer/src/store/generate.store'
+import { useAppStore } from '../../src/renderer/src/store/app.store'
 
 const MOCK_RECORD = {
   id: 'gen-1',
@@ -43,5 +45,14 @@ describe('Library', () => {
     fireEvent.click(screen.getByTestId('gen-card-gen-1'))
     expect(screen.getByTestId('generation-modal')).toBeInTheDocument()
     expect(screen.getByText('12345')).toBeInTheDocument()
+  })
+
+  it('Re-generate button pre-fills subject and navigates to generate screen', () => {
+    useLibraryStore.setState({ generations: [MOCK_RECORD], selectedId: 'gen-1' })
+    render(<Library />)
+    fireEvent.click(screen.getByRole('button', { name: /re-generate/i }))
+    expect(useGenerateStore.getState().subject).toBe(MOCK_RECORD.prompt)
+    expect(useLibraryStore.getState().selectedId).toBeNull()
+    expect(useAppStore.getState().activeScreen).toBe('generate')
   })
 })

@@ -25,7 +25,7 @@ export function Library() {
     window.localforge.db.getAllGenerations().then((records: GenerationRecord[]) => {
       setGenerations(records)
     })
-  }, [])
+  }, [setGenerations])
 
   const selected = generations.find((g) => g.id === selectedId) ?? null
 
