@@ -17,6 +17,12 @@ export function initDatabase(dbPath: string): void {
       created_at    INTEGER NOT NULL
     )
   `)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS settings (
+      key   TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    )
+  `)
 }
 
 export function getDatabase(): DB {
@@ -53,4 +59,15 @@ export function insertGeneration(record: GenerationRecord): void {
 export function closeDatabase(): void {
   db?.close()
   db = undefined
+}
+
+export function getSettingValue(key: string): string | null {
+  const db = getDatabase()
+  const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key) as { value: string } | undefined
+  return row?.value ?? null
+}
+
+export function setSettingValue(key: string, value: string): void {
+  const db = getDatabase()
+  db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(key, value)
 }

@@ -1,8 +1,6 @@
 import '@testing-library/jest-dom'
 import { vi } from 'vitest'
 
-// Provide a default window.localforge stub so renderer tests don't error on IPC calls.
-// Individual tests can override specific methods with vi.mocked(...).mockResolvedValue(...)
 if (typeof window !== 'undefined') {
   vi.stubGlobal('localforge', {
     db: {
@@ -16,6 +14,15 @@ if (typeof window !== 'undefined') {
     },
     generate: {
       saveRecord: vi.fn().mockResolvedValue({ success: true }),
+    },
+    settings: {
+      getOutputPath: vi.fn().mockResolvedValue('C:\\LocalForge\\outputs'),
+      setOutputPath: vi.fn().mockResolvedValue(undefined),
+      browseOutputPath: vi.fn().mockResolvedValue(null),
+    },
+    app: {
+      getVersion: vi.fn().mockResolvedValue('1.0.0'),
+      openExternal: vi.fn().mockResolvedValue(undefined),
     },
   })
 }

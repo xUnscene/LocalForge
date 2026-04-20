@@ -1,6 +1,6 @@
-import { ipcMain } from 'electron'
-import { app } from 'electron'
-import { getDatabase, insertGeneration, GenerationRecord } from './database'
+import { ipcMain, app, dialog, shell } from 'electron'
+import { join } from 'path'
+import { getDatabase, insertGeneration, GenerationRecord, getSettingValue, setSettingValue } from './database'
 import { getSidecarPort, getSidecarStatus } from './sidecar'
 import { isSetupComplete } from './setup'
 
@@ -29,5 +29,29 @@ export function registerIpcHandlers(): void {
     }
     insertGeneration(record)
     return { success: true }
+  })
+
+  ipcMain.handle('settings:getOutputPath', () => {
+    return getSettingValue('output_path') ?? join(app.getPath('userData'), 'outputs')
+  })
+
+  ipcMain.handle('settings:setOutputPath', (_event, path: string) => {
+    setSettingValue('output_path', path)
+  })
+
+  ipcMain.handle('settings:browseOutputPath', async () => {
+    const { canceled, filePaths } = await dialog.showOpenDialog({
+      properties: ['openDirectory'],
+      title: 'Select output folder',
+    })
+    return canceled ? null : filePaths[0]
+  })
+
+  ipcMain.handle('app:getVersion', () => {
+    return app.getVersion()
+  })
+
+  ipcMain.handle('app:openExternal', (_event, url: string) => {
+    shell.openExternal(url)
   })
 }

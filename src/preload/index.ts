@@ -21,6 +21,15 @@ export const api = {
       created_at: number
     }) => ipcRenderer.invoke('generate:saveRecord', record),
   },
+  settings: {
+    getOutputPath: () => ipcRenderer.invoke('settings:getOutputPath'),
+    setOutputPath: (path: string) => ipcRenderer.invoke('settings:setOutputPath', path),
+    browseOutputPath: (): Promise<string | null> => ipcRenderer.invoke('settings:browseOutputPath'),
+  },
+  app: {
+    getVersion: (): Promise<string> => ipcRenderer.invoke('app:getVersion'),
+    openExternal: (url: string) => ipcRenderer.invoke('app:openExternal', url),
+  },
 }
 
 contextBridge.exposeInMainWorld('localforge', api)
