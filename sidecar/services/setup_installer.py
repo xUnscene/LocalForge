@@ -53,7 +53,7 @@ class SetupInstaller:
         os.makedirs(os.path.dirname(dest_path), exist_ok=True)
         self._set(phase, 0)
         part_path = dest_path + '.part'
-        with httpx.stream('GET', url, follow_redirects=True, timeout=300) as r:
+        with httpx.stream('GET', url, follow_redirects=True, timeout=httpx.Timeout(300.0)) as r:
             r.raise_for_status()
             total = int(r.headers.get('content-length', 0))
             downloaded = 0
