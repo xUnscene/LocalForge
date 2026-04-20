@@ -19,7 +19,7 @@ describe('electron-builder config', () => {
       (r: { from: string; to: string }) => r.to === 'localforge-sidecar.exe'
     )
     expect(sidecar).toBeDefined()
-    expect(sidecar.from).toBe('sidecar/dist/localforge-sidecar.exe')
+    expect(sidecar!.from).toBe('sidecar/dist/localforge-sidecar.exe')
   })
 
   it('files filter includes out/ and excludes source maps', () => {
