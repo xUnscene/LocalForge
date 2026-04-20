@@ -65,7 +65,10 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
   }
 
   const startInstall = async () => {
-    if (!sidecarPort) return
+    if (!sidecarPort) {
+      setProgress({ phase: 'error', percent: 0, error: 'Sidecar not running — restart the app and try again.' })
+      return
+    }
     try {
       const r = await fetch(`http://127.0.0.1:${sidecarPort}/setup/install`, { method: 'POST' })
       if (!r.ok) throw new Error(`Install request failed: ${r.status}`)

@@ -30,8 +30,15 @@ export function startSidecar(): Promise<number> {
     let resolved = false
 
     // Windows-only path. Update to platform-conditional when macOS/Linux support is added.
-    const cmd = is.dev ? 'python' : join(process.resourcesPath, 'localforge-sidecar.exe')
-    const args = is.dev ? [join(app.getAppPath(), 'sidecar', 'main.py')] : []
+    // Try 'python' first; fall back to 'py' (Windows Launcher) if not on PATH.
+    const scriptPath = join(app.getAppPath(), 'sidecar', 'main.py')
+    const [cmd, args] = is.dev
+      ? (() => {
+          const { execSync } = require('child_process')
+          try { execSync('python --version', { stdio: 'ignore' }); return ['python', [scriptPath]] }
+          catch { return ['py', [scriptPath]] }
+        })()
+      : [join(process.resourcesPath, 'localforge-sidecar.exe'), []]
 
     sidecarProcess = spawn(cmd, args, {
       stdio: ['ignore', 'pipe', 'pipe'],
