@@ -59,7 +59,7 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
       fetchGpuInfo(sidecarPort)
     } else {
       window.localforge.sidecar.getStatus().then((s: { port: number | null }) => {
-        if (s.port) fetchGpuInfo(s.port)
+        if (s.port) { setSidecarPort(s.port); fetchGpuInfo(s.port) }
       })
     }
   }
