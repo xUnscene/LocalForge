@@ -37,12 +37,12 @@ def assemble_prompt(subject: str, style: str, shot: dict) -> str:
     return ', '.join(filter(None, parts))
 
 
-def build_workflow(prompt: str, seed: int, ratio: str) -> dict:
+def build_workflow(prompt: str, seed: int, ratio: str, checkpoint: str = DEFAULT_CHECKPOINT) -> dict:
     width, height = ASPECT_RATIOS.get(ratio, (1280, 720))
     return {
         '1': {
             'class_type': 'CheckpointLoaderSimple',
-            'inputs': {'ckpt_name': DEFAULT_CHECKPOINT},
+            'inputs': {'ckpt_name': checkpoint},
         },
         '2': {
             'class_type': 'CLIPTextEncode',

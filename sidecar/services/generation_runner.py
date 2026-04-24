@@ -74,7 +74,16 @@ class GenerationRunner:
                 status_str = job.get('status', {}).get('status_str', '')
                 if status_str == 'error':
                     msgs = job.get('status', {}).get('messages', [])
-                    error_msg = msgs[-1][1] if msgs else 'Unknown ComfyUI error'
+                    if msgs:
+                        last = msgs[-1]
+                        # ComfyUI messages are [event_name, data] pairs
+                        payload = last[1] if len(last) > 1 else last[0]
+                        if isinstance(payload, dict):
+                            error_msg = payload.get('exception_message') or payload.get('message') or str(payload)
+                        else:
+                            error_msg = str(payload)
+                    else:
+                        error_msg = 'Unknown ComfyUI error'
                     self._set(status='error', error=error_msg)
                     return
 

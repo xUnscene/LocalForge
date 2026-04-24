@@ -2,6 +2,7 @@ import { ChildProcess, spawn } from 'child_process'
 import { join } from 'path'
 import { app } from 'electron'
 import { is } from '@electron-toolkit/utils'
+import { getEngineDir } from './engine-dir'
 
 let sidecarProcess: ChildProcess | null = null
 let sidecarPort: number | null = null
@@ -38,11 +39,12 @@ export function startSidecar(): Promise<number> {
 
     const { writeFileSync, appendFileSync } = require('fs')
     const logPath = join(app.getPath('userData'), 'sidecar.log')
-    writeFileSync(logPath, `[start] cmd=${cmd} args=${JSON.stringify(args)}\n`)
+    const engineDir = getEngineDir()
+    writeFileSync(logPath, `[start] cmd=${cmd} args=${JSON.stringify(args)} engineDir=${engineDir}\n`)
 
     sidecarProcess = spawn(cmd, args, {
       stdio: ['ignore', 'pipe', 'pipe'],
-      env: { ...process.env },
+      env: { ...process.env, LOCALFORGE_ENGINE_DIR: engineDir },
     })
 
     sidecarProcess.stderr!.on('data', (data: Buffer) => {

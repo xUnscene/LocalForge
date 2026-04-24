@@ -3,8 +3,8 @@ import { useSettingsStore, ComfyStatus } from '../store/settings.store'
 
 export function Settings() {
   const {
-    gpuName, vramGb, comfyStatus, outputPath, appVersion, isRestarting,
-    setGpuInfo, setComfyStatus, setOutputPath, setAppVersion, setIsRestarting,
+    gpuName, vramGb, comfyStatus, outputPath, engineDir, appVersion, isRestarting,
+    setGpuInfo, setComfyStatus, setOutputPath, setEngineDir, setAppVersion, setIsRestarting,
   } = useSettingsStore()
 
   useEffect(() => {
@@ -14,6 +14,9 @@ export function Settings() {
 
       const path = await window.localforge.settings.getOutputPath()
       setOutputPath(path)
+
+      const dir = await window.localforge.settings.getEngineDir()
+      setEngineDir(dir)
 
       const { port } = await window.localforge.sidecar.getStatus()
       if (!port) return
@@ -56,6 +59,14 @@ export function Settings() {
     if (selected) {
       await window.localforge.settings.setOutputPath(selected)
       setOutputPath(selected)
+    }
+  }
+
+  const handleBrowseEngineDir = async () => {
+    const selected = await window.localforge.settings.browseEngineDir()
+    if (selected) {
+      await window.localforge.settings.setEngineDir(selected)
+      setEngineDir(selected)
     }
   }
 
@@ -120,6 +131,31 @@ export function Settings() {
           >
             {isRestarting ? 'Restarting…' : 'Restart Engine'}
           </button>
+        </div>
+      </section>
+
+      {/* Engine directory */}
+      <section style={section}>
+        <div style={sectionLabel}>Storage</div>
+        <div style={card}>
+          <div style={{ ...fieldLabel, marginBottom: 8 }}>Engine Directory</div>
+          <div style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginBottom: 8 }}>
+            Where ComfyUI and models are stored. Restart required after changing.
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{
+              flex: 1, fontSize: 12, color: 'var(--color-text-primary)',
+              fontFamily: 'var(--font-mono)', background: 'var(--color-bg)',
+              padding: '8px 10px', borderRadius: 'var(--radius)',
+              border: '1px solid var(--color-border)',
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>
+              {engineDir ?? '—'}
+            </div>
+            <button onClick={handleBrowseEngineDir} style={{ ...secondaryBtn, flexShrink: 0 }}>
+              Browse
+            </button>
+          </div>
         </div>
       </section>
 

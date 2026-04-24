@@ -4,8 +4,8 @@ export interface ModelInfo {
   id: string
   name: string
   description: string
-  vramRequiredGb: number
-  downloadSizeGb: number
+  vramRequiredGb: number | null
+  downloadSizeGb: number | null
   installed: boolean
   sizeOnDiskGb: number | null
   badge: string

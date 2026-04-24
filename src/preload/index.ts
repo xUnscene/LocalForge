@@ -25,6 +25,13 @@ export const api = {
     getOutputPath: () => ipcRenderer.invoke('settings:getOutputPath'),
     setOutputPath: (path: string) => ipcRenderer.invoke('settings:setOutputPath', path),
     browseOutputPath: (): Promise<string | null> => ipcRenderer.invoke('settings:browseOutputPath'),
+    getEngineDir: (): Promise<string> => ipcRenderer.invoke('settings:getEngineDir'),
+    setEngineDir: (dir: string): Promise<void> => ipcRenderer.invoke('settings:setEngineDir', dir),
+    browseEngineDir: (): Promise<string | null> => ipcRenderer.invoke('settings:browseEngineDir'),
+  },
+  models: {
+    openCheckpointsFolder: (): Promise<void> => ipcRenderer.invoke('models:openCheckpointsFolder'),
+    importLocal: (): Promise<string[] | null> => ipcRenderer.invoke('models:importLocal'),
   },
   app: {
     getVersion: (): Promise<string> => ipcRenderer.invoke('app:getVersion'),

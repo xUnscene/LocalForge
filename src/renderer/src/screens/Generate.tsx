@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { useGenerateStore, ShotSettings } from '../store/generate.store'
 
+interface InstalledModel { id: string; name: string }
+
 const STYLES = [
   { id: 'cinematic', label: 'Cinematic', desc: 'High contrast, film grain' },
   { id: 'studio_portrait', label: 'Studio Portrait', desc: 'Clean, professional' },
@@ -31,24 +33,46 @@ const SHOT_FIELDS: { field: keyof ShotSettings; label: string; options: string[]
 
 export function Generate() {
   const {
-    subject, style, shot, status, progress, seed, outputImagePath, lastError,
-    setSubject, setStyle, setShotField, setGenerationResult, resetGeneration,
+    subject, style, shot, model, status, progress, seed, outputImagePath, lastError,
+    setSubject, setStyle, setShotField, setModel, setGenerationResult, resetGeneration,
   } = useGenerateStore()
 
-  const [openStep, setOpenStep] = useState<1 | 2 | 3>(1)
+  const [openStep, setOpenStep] = useState<1 | 2 | 3 | 4>(1)
   const [port, setPort] = useState<number | null>(null)
+  const [installedModels, setInstalledModels] = useState<InstalledModel[]>([])
+  const [outputImageUrl, setOutputImageUrl] = useState<string | null>(null)
   const readerRef = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(null)
 
   useEffect(() => {
     window.localforge.sidecar.getStatus().then((s: { port: number | null }) => {
       setPort(s.port)
+      if (s.port) loadInstalledModels(s.port)
     })
     return () => { readerRef.current?.cancel() }
   }, [])
 
+  const loadInstalledModels = async (p: number) => {
+    try {
+      const r = await fetch(`http://127.0.0.1:${p}/models`)
+      if (!r.ok) return
+      const data = await r.json()
+      const installed: InstalledModel[] = data
+        .filter((m: any) => m.installed)
+        .map((m: any) => ({ id: m.id, name: m.name }))
+      setInstalledModels(installed)
+      // If the currently selected model is no longer available, reset to first
+      if (installed.length > 0 && !installed.find((m) => m.id === model)) {
+        setModel(installed[0].id)
+      }
+    } catch {
+      // sidecar not ready yet — model step will be empty but won't crash
+    }
+  }
+
   const handleGenerate = async () => {
     if (status === 'generating' || status === 'queued') return
     resetGeneration()
+    setOutputImageUrl(null)
 
     // Resolve port at call time in case state hasn't settled yet
     let activePort = port
@@ -65,7 +89,7 @@ export function Generate() {
       const response = await fetch(`http://127.0.0.1:${activePort}/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subject, style, shot }),
+        body: JSON.stringify({ subject, style, shot, model }),
       })
 
       if (!response.ok) throw new Error(`Sidecar error: ${response.status}`)
@@ -94,11 +118,13 @@ export function Generate() {
           })
 
           if (event.status === 'complete' && event.output_path) {
+            const filename = event.output_path.split(/[\\/]/).pop()
+            setOutputImageUrl(`http://127.0.0.1:${activePort}/output/${filename}`)
             await window.localforge.generate.saveRecord({
               id: crypto.randomUUID(),
               prompt: event.prompt ?? subject,
               seed: event.seed,
-              model: 'z-image',
+              model,
               output_path: event.output_path,
               thumbnail_path: '',  // thumbnails generated in Plan 6 (Library)
               created_at: Date.now(),
@@ -111,9 +137,9 @@ export function Generate() {
     }
   }
 
-  const isActive = status === 'generating' || status === 'queued'
+  const isActive = status === 'starting_engine' || status === 'generating' || status === 'queued'
 
-  const stepBtn = (n: 1 | 2 | 3, label: string) => (
+  const stepBtn = (n: 1 | 2 | 3 | 4, label: string) => (
     <button
       onClick={() => setOpenStep(n)}
       style={{
@@ -187,7 +213,7 @@ export function Generate() {
           </div>
 
           {/* Step 3: Shot */}
-          <div>
+          <div style={{ borderBottom: '1px solid var(--color-border)' }}>
             {stepBtn(3, 'Shot')}
             {openStep === 3 && (
               <div style={{ padding: '0 16px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -207,14 +233,49 @@ export function Generate() {
               </div>
             )}
           </div>
+
+          {/* Step 4: Model */}
+          <div>
+            {stepBtn(4, 'Model')}
+            {openStep === 4 && (
+              <div style={{ padding: '0 16px 16px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {installedModels.length === 0 ? (
+                  <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
+                    No models installed — go to the Models screen to install one.
+                  </div>
+                ) : (
+                  installedModels.map((m) => (
+                    <button
+                      key={m.id}
+                      data-testid={`model-option-${m.id}`}
+                      onClick={() => setModel(m.id)}
+                      style={{
+                        padding: '8px 12px',
+                        background: 'var(--color-bg)',
+                        border: `1px solid ${model === m.id ? 'var(--color-accent)' : 'var(--color-border)'}`,
+                        borderRadius: 'var(--radius)',
+                        textAlign: 'left',
+                        fontSize: 13,
+                        color: model === m.id ? 'var(--color-accent)' : 'var(--color-text-primary)',
+                        fontWeight: model === m.id ? 600 : 400,
+                        boxShadow: model === m.id ? '0 0 8px var(--color-accent-glow)' : 'none',
+                      }}
+                    >
+                      {m.name}
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Right panel: output preview */}
         <div data-testid="output-panel" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--color-bg)', position: 'relative', overflow: 'hidden' }}>
-          {outputImagePath ? (
+          {outputImageUrl ? (
             <img
               data-testid="output-image"
-              src={`file:///${outputImagePath.replace(/\\/g, '/')}`}
+              src={outputImageUrl}
               style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: 'var(--radius)' }}
               alt="Generated"
             />
@@ -225,7 +286,7 @@ export function Generate() {
             </div>
           )}
 
-          {seed !== null && outputImagePath && (
+          {seed !== null && outputImageUrl && (
             <div style={{ position: 'absolute', bottom: 12, right: 12, fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--color-text-secondary)', background: 'rgba(0,0,0,0.6)', padding: '2px 8px', borderRadius: 4 }}>
               seed: {seed}
             </div>
@@ -250,7 +311,7 @@ export function Generate() {
           disabled={isActive || !subject.trim()}
           style={{ flexShrink: 0 }}
         >
-          {isActive ? 'Generating...' : 'Generate'}
+          {status === 'starting_engine' ? 'Starting engine...' : isActive ? 'Generating...' : 'Generate'}
         </button>
 
         {isActive && (
