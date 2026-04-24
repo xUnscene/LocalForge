@@ -5,9 +5,9 @@
 
 ---
 
-## Status: SHIPPED — installer built and confirmed working
+## Status: SHIPPED — installer built, confirmed working, sent to beta tester
 
-`master` is the active branch. All 126 tests passing. First packaged Windows installer (`dist\LocalForge Setup 1.0.0.exe`) built and confirmed launching successfully.
+`master` is the active branch, up to date with origin. All 126 tests passing. Windows installer (`dist\LocalForge Setup 1.0.0.exe`) builds cleanly and launches successfully.
 
 ---
 
@@ -32,16 +32,24 @@ Two commits from session 6 were pending. Pushed cleanly.
 - Moved the entire build config into `package.json` under a `"build"` key (electron-builder's highest-priority config location — confirmed by `loaded configuration file=package.json ("build" field)` in output)
 - Added file exclusions: `!localforge/**`, `!sidecar/**`, `!.worktrees/**`, `!.tmp/**`, `!tools/**`, `!workflows/**`
 
-### 4. Built and installed
+### 4. First successful packaged build and install
 
 ```
 npm run build:sidecar   # PyInstaller → sidecar/dist/localforge-sidecar.exe
 npm run dist:win        # electron-builder → dist/LocalForge Setup 1.0.0.exe
 ```
 
-Installer ran successfully. App opened after install. ✓
+Installer ran, app opened. ✓
 
-**Note:** `npm run build:sidecar` and `npm run dist:win` must be run from your own PowerShell — not through Claude Code's terminal, where `ELECTRON_RUN_AS_NODE=1` is set.
+### 5. Beta tester (Chad) hit Python 3.10 missing error
+
+Chad ran the installer on a clean machine. The setup wizard failed with a cryptic exit code when trying to `py -3.10 -m venv ...` because Python 3.10 wasn't installed.
+
+**Fix — auto-install Python 3.10:**
+- `setup_installer.py`: added `_get_python310()` method that checks for `py -3.10`, falls back to direct path at `%LOCALAPPDATA%\Programs\Python\Python310\python.exe`, and if neither exists downloads the Python 3.10.11 installer (~25MB from python.org) and runs it silently (`/quiet InstallAllUsers=0 PrependPath=0`)
+- `_run()` now calls `_get_python310()` and uses the returned argv prefix for all Python 3.10 invocations
+- `SetupWizard.tsx`: added `downloading_python` and `installing_python` to `PHASE_LABELS` so users see progress labels
+- New installer sent to Chad — no manual Python install required
 
 ---
 
@@ -70,7 +78,7 @@ Installer ran successfully. App opened after install. ✓
 ### Build workflow
 `npm run build:release` = `npm run build && npm run build:sidecar && npm run dist:win`
 
-Must be run from your own PowerShell (not Claude Code terminal) — `ELECTRON_RUN_AS_NODE=1` is set in Claude Code's shell and breaks Electron builds.
+Must be run from your own PowerShell (not Claude Code terminal) — `ELECTRON_RUN_AS_NODE=1` is set in Claude Code's shell and breaks Electron builds. PowerShell 5.1 does not support `&&` — run steps separately.
 
 ### Dev workflow — ABI management
 `npm test` rebuilds `better-sqlite3` for **Node ABI** (v137) via `pretest`. Before running the app in dev mode, rebuild for **Electron ABI** (v135):
@@ -105,11 +113,11 @@ None.
 ## Git state
 - Active branch: `master` — up to date with origin
 - Recent commits:
+  - `aed79ff` feat: auto-install Python 3.10 during setup if not present
+  - `718d068` fix: pre-flight check for Python 3.10 before ComfyUI install
   - `f1001a1` build: move electron-builder config into package.json, fix pyinstaller path
-  - `18a9b0e` docs: update session summary for session 6
-  - `8482ee4` fix: remove @electron-toolkit/utils, inline dev-mode helpers
 
 ---
 
 ## Next steps
-No outstanding items. App is packaged and working. Future sessions: feature work or bug fixes as needed.
+No outstanding items. Waiting on Chad's feedback from the new installer.
