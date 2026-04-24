@@ -7,6 +7,13 @@ from services.generation_runner import GenerationProgress
 from PIL import Image as PILImage
 
 
+def _mock_manager() -> MagicMock:
+    m = MagicMock()
+    m.is_installed.return_value = True
+    m.get_status.return_value = 'running'
+    return m
+
+
 def test_generate_returns_sse_content_type(engine_dir):
     app = create_app(engine_dir=engine_dir)
     mock_runner = MagicMock()
@@ -15,6 +22,7 @@ def test_generate_returns_sse_content_type(engine_dir):
         status='complete', percent=100, seed=42, output_path='/out/test.png'
     )
     app.state.runner = mock_runner
+    app.state.manager = _mock_manager()
 
     client = TestClient(app)
     with client.stream('POST', '/generate', json={
@@ -39,6 +47,7 @@ def test_generate_assembles_prompt_into_workflow(engine_dir):
         status='complete', percent=100, seed=7, output_path='/out/img.png'
     )
     app.state.runner = mock_runner
+    app.state.manager = _mock_manager()
 
     client = TestClient(app)
     with client.stream('POST', '/generate', json={
@@ -62,6 +71,7 @@ def test_generate_returns_error_sse_when_runner_busy(engine_dir):
     mock_runner = MagicMock()
     mock_runner.start.return_value = 'Generation already in progress'
     app.state.runner = mock_runner
+    app.state.manager = _mock_manager()
 
     client = TestClient(app)
     with client.stream('POST', '/generate', json={
@@ -84,6 +94,7 @@ def test_generate_sse_includes_thumbnail_path(engine_dir):
         thumbnail_path='/out/thumbnails/test_thumb.jpg',
     )
     app.state.runner = mock_runner
+    app.state.manager = _mock_manager()
 
     client = TestClient(app)
     with client.stream('POST', '/generate', json={
