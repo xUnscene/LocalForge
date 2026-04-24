@@ -19,6 +19,7 @@ if (typeof window !== 'undefined') {
       getOutputPath: vi.fn().mockResolvedValue('C:\\LocalForge\\outputs'),
       setOutputPath: vi.fn().mockResolvedValue(undefined),
       browseOutputPath: vi.fn().mockResolvedValue(null),
+      getEngineDir: vi.fn().mockResolvedValue('C:\\LocalForge\\engine'),
     },
     app: {
       getVersion: vi.fn().mockResolvedValue('1.0.0'),

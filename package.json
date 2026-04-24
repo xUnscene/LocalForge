@@ -9,6 +9,8 @@
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "test": "vitest run",
+    "pretest": "npm rebuild better-sqlite3",
+    "app:rebuild": "npx electron-builder install-app-deps",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
