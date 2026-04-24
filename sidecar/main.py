@@ -16,7 +16,9 @@ def find_free_port() -> int:
 
 
 if __name__ == '__main__':
-    engine_dir = os.path.join(os.environ.get('APPDATA', ''), 'LocalForge', 'engine')
+    engine_dir = os.environ.get('LOCALFORGE_ENGINE_DIR') or os.path.join(
+        os.environ.get('APPDATA', ''), 'LocalForge', 'engine'
+    )
     port = find_free_port()
     print(f'PORT={port}', flush=True)
     sys.stdout.flush()
