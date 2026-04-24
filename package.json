@@ -18,7 +18,7 @@
     "typecheck": "npm run typecheck:node && npm run typecheck:web",
     "build:unpack": "npm run build && electron-builder --dir",
     "build:win": "npm run build && electron-builder --win",
-    "build:sidecar": "cd sidecar && pip install pyinstaller --quiet && pyinstaller localforge-sidecar.spec --clean --noconfirm",
+    "build:sidecar": "cd sidecar && pip install pyinstaller --quiet && py -m PyInstaller localforge-sidecar.spec --clean --noconfirm",
     "dist:win": "electron-builder --win",
     "build:release": "npm run build && npm run build:sidecar && npm run dist:win"
   },
@@ -26,6 +26,36 @@
     "@electron-toolkit/preload": "^3.0.2",
     "better-sqlite3": "^12.9.0",
     "zustand": "^5.0.6"
+  },
+  "build": {
+    "appId": "com.localforge.app",
+    "productName": "LocalForge",
+    "copyright": "Copyright © 2025 LocalForge",
+    "directories": { "output": "dist" },
+    "files": [
+      "out/**",
+      "!out/**/*.map",
+      "!localforge/**",
+      "!sidecar/**",
+      "!.worktrees/**",
+      "!.tmp/**",
+      "!tools/**",
+      "!workflows/**"
+    ],
+    "extraResources": [
+      { "from": "sidecar/dist/localforge-sidecar.exe", "to": "localforge-sidecar.exe" }
+    ],
+    "win": {
+      "target": [{ "target": "nsis", "arch": ["x64"] }],
+      "icon": "resources/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "LocalForge"
+    }
   },
   "devDependencies": {
     "@electron-toolkit/eslint-config-prettier": "^3.0.0",
