@@ -10,7 +10,7 @@ const formatDate = (ts: number): string =>
   })
 
 const outputUrl = (outputPath: string, p: number | null): string => {
-  if (!p || !outputPath) return ''
+  if (p === null || !outputPath) return ''
   const filename = outputPath.split(/[\\/]/).pop() ?? ''
   return `http://127.0.0.1:${p}/output/${encodeURIComponent(filename)}`
 }
@@ -23,7 +23,9 @@ export function Library() {
   const [port, setPort] = useState<number | null>(null)
 
   useEffect(() => {
-    window.localforge.sidecar.getStatus().then((s: { port: number }) => setPort(s.port))
+    window.localforge.sidecar.getStatus()
+      .then((s: { port: number | null }) => setPort(s.port))
+      .catch(() => { /* port stays null; images hide via onError */ })
     window.localforge.db.getAllGenerations().then((records: GenerationRecord[]) => {
       setGenerations(records)
     })
@@ -68,12 +70,14 @@ export function Library() {
                 border: '1px solid var(--color-border)',
               }}
             >
-              <img
-                src={outputUrl(record.output_path, port)}
-                alt={record.prompt.slice(0, 80)}
-                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
-              />
+              {port !== null && (
+                <img
+                  src={outputUrl(record.output_path, port)}
+                  alt={record.prompt.slice(0, 80)}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                />
+              )}
               <div style={{
                 position: 'absolute',
                 inset: 0,
