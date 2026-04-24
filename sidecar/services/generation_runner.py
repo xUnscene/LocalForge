@@ -4,6 +4,7 @@ import time
 from dataclasses import dataclass, replace
 
 import httpx
+from PIL import Image
 
 
 @dataclass
@@ -12,6 +13,7 @@ class GenerationProgress:
     percent: int = 0
     seed: int = 0
     output_path: str | None = None
+    thumbnail_path: str | None = None
     error: str | None = None
 
 
@@ -42,6 +44,20 @@ class GenerationRunner:
         with self._lock:
             for k, v in kwargs.items():
                 setattr(self._progress, k, v)
+
+    def _make_thumbnail(self, output_path: str) -> str | None:
+        try:
+            thumb_dir = os.path.normpath(os.path.join(self.output_dir, '..', 'thumbnails'))
+            os.makedirs(thumb_dir, exist_ok=True)
+            stem = os.path.splitext(os.path.basename(output_path))[0]
+            thumb_path = os.path.join(thumb_dir, f'{stem}_thumb.jpg')
+            with Image.open(output_path) as img:
+                img.thumbnail((256, 256), Image.LANCZOS)
+                rgb = img.convert('RGB')
+                rgb.save(thumb_path, 'JPEG', quality=85)
+            return thumb_path
+        except Exception:
+            return None
 
     def _run(self, workflow: dict, seed: int) -> None:
         try:
@@ -74,7 +90,16 @@ class GenerationRunner:
                 status_str = job.get('status', {}).get('status_str', '')
                 if status_str == 'error':
                     msgs = job.get('status', {}).get('messages', [])
-                    error_msg = msgs[-1][1] if msgs else 'Unknown ComfyUI error'
+                    if msgs:
+                        last = msgs[-1]
+                        # ComfyUI messages are [event_name, data] pairs
+                        payload = last[1] if len(last) > 1 else last[0]
+                        if isinstance(payload, dict):
+                            error_msg = payload.get('exception_message') or payload.get('message') or str(payload)
+                        else:
+                            error_msg = str(payload)
+                    else:
+                        error_msg = 'Unknown ComfyUI error'
                     self._set(status='error', error=error_msg)
                     return
 
@@ -84,7 +109,9 @@ class GenerationRunner:
                     if images:
                         filename = images[0]['filename']
                         out_path = os.path.join(self.output_dir, filename)
-                        self._set(status='complete', percent=100, output_path=out_path)
+                        thumb_path = self._make_thumbnail(out_path)
+                        self._set(status='complete', percent=100, output_path=out_path,
+                                  thumbnail_path=thumb_path)
                         return
 
                 # Job in history but no outputs yet — keep polling
