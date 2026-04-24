@@ -62,4 +62,28 @@ describe('Generate', () => {
       ),
     )
   })
+
+  it('passes thumbnail_path from SSE complete event to saveRecord', async () => {
+    const sseBody =
+      'data: {"status":"complete","percent":100,"seed":42,"output_path":"/out/img.png","thumbnail_path":"/out/thumbnails/img_thumb.jpg","error":null,"prompt":"a cat in rain"}\n\n'
+    const encoder = new TextEncoder()
+    const readable = new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode(sseBody))
+        controller.close()
+      },
+    })
+    vi.mocked(global.fetch).mockResolvedValue({ ok: true, body: readable } as any)
+    vi.mocked(window.localforge.generate.saveRecord).mockResolvedValue({ success: true } as any)
+
+    useGenerateStore.setState({ subject: 'a cat in rain' })
+    render(<Generate />)
+    fireEvent.click(screen.getByTestId('generate-btn'))
+
+    await waitFor(() =>
+      expect(window.localforge.generate.saveRecord).toHaveBeenCalledWith(
+        expect.objectContaining({ thumbnail_path: '/out/thumbnails/img_thumb.jpg' })
+      )
+    )
+  })
 })
