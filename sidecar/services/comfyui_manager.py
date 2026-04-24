@@ -6,10 +6,11 @@ from typing import Optional
 class ComfyUIManager:
     COMFYUI_PORT = 8188
 
-    def __init__(self, engine_dir: str) -> None:
+    def __init__(self, engine_dir: str, log_path: str | None = None) -> None:
         self.engine_dir = engine_dir
         self.comfyui_path = os.path.join(engine_dir, 'ComfyUI')
         self._process: Optional[subprocess.Popen] = None
+        self._log_path = log_path
 
     def is_installed(self) -> bool:
         return os.path.isdir(self.comfyui_path)
@@ -34,13 +35,23 @@ class ComfyUIManager:
         if not os.path.isfile(python):
             python = 'python'
         main_script = os.path.join(self.comfyui_path, 'main.py')
+        if self._log_path:
+            log_file = open(self._log_path, 'a')
+            stdout = log_file
+            stderr = log_file
+        else:
+            log_file = None
+            stdout = subprocess.DEVNULL
+            stderr = subprocess.DEVNULL
         self._process = subprocess.Popen(
             [python, main_script, '--listen', '127.0.0.1',
              '--port', str(self.COMFYUI_PORT), '--disable-auto-launch'],
             cwd=self.comfyui_path,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            stdout=stdout,
+            stderr=stderr,
         )
+        if log_file:
+            log_file.close()
         return True
 
     def stop(self) -> None:

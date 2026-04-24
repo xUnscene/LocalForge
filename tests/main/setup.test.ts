@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { join } from 'path'
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'fs'
+import { mkdtempSync, mkdirSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { isSetupComplete } from '../../src/main/setup'
 
@@ -20,8 +20,7 @@ describe('isSetupComplete', () => {
   })
 
   it('returns true when ComfyUI dir exists', () => {
-    mkdirSync(join(tmpDir, 'ComfyUI'), { recursive: true })
-    writeFileSync(join(tmpDir, 'ComfyUI', 'main.py'), '')
+    mkdirSync(join(tmpDir, 'engine', 'ComfyUI'), { recursive: true })
     expect(isSetupComplete(tmpDir)).toBe(true)
   })
 })
