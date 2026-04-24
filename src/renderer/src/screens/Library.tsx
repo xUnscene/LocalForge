@@ -3,25 +3,27 @@ import { useLibraryStore, GenerationRecord } from '../store/library.store'
 import { useAppStore } from '../store/app.store'
 import { useGenerateStore } from '../store/generate.store'
 
-const toFileUrl = (path: string): string =>
-  path ? `file:///${path.replace(/\\/g, '/')}` : ''
-
 const formatDate = (ts: number): string =>
   new Date(ts).toLocaleString('en-US', {
     month: 'short', day: 'numeric', year: 'numeric',
     hour: '2-digit', minute: '2-digit',
   })
 
-const imgSrc = (record: GenerationRecord): string =>
-  record.thumbnail_path ? toFileUrl(record.thumbnail_path) : toFileUrl(record.output_path)
+const outputUrl = (outputPath: string, p: number | null): string => {
+  if (!p || !outputPath) return ''
+  const filename = outputPath.split(/[\\/]/).pop() ?? ''
+  return `http://127.0.0.1:${p}/output/${encodeURIComponent(filename)}`
+}
 
 export function Library() {
   const { generations, selectedId, setGenerations, selectGeneration } = useLibraryStore()
   const { navigate } = useAppStore()
   const { setSubject } = useGenerateStore()
   const [hoveredId, setHoveredId] = useState<string | null>(null)
+  const [port, setPort] = useState<number | null>(null)
 
   useEffect(() => {
+    window.localforge.sidecar.getStatus().then((s: { port: number }) => setPort(s.port))
     window.localforge.db.getAllGenerations().then((records: GenerationRecord[]) => {
       setGenerations(records)
     })
@@ -67,7 +69,7 @@ export function Library() {
               }}
             >
               <img
-                src={imgSrc(record)}
+                src={outputUrl(record.output_path, port)}
                 alt={record.prompt.slice(0, 80)}
                 style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                 onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
@@ -123,7 +125,7 @@ export function Library() {
             flexDirection: 'column',
           }}>
             <img
-              src={toFileUrl(selected.output_path)}
+              src={outputUrl(selected.output_path, port)}
               alt={selected.prompt.slice(0, 80)}
               style={{ width: '100%', maxHeight: '60vh', objectFit: 'contain', background: '#1a1a1a' }}
               onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
