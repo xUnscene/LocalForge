@@ -15,6 +15,15 @@ const outputUrl = (outputPath: string, p: number | null): string => {
   return `http://127.0.0.1:${p}/output/${encodeURIComponent(filename)}`
 }
 
+const thumbnailUrl = (record: GenerationRecord, p: number | null): string => {
+  if (p === null || !record.output_path) return ''
+  if (record.thumbnail_path) {
+    const filename = record.thumbnail_path.split(/[\\/]/).pop() ?? ''
+    return `http://127.0.0.1:${p}/thumbnail/${encodeURIComponent(filename)}`
+  }
+  return outputUrl(record.output_path, p)
+}
+
 export function Library() {
   const { generations, selectedId, setGenerations, selectGeneration } = useLibraryStore()
   const { navigate } = useAppStore()
@@ -72,7 +81,7 @@ export function Library() {
             >
               {port !== null && (
                 <img
-                  src={outputUrl(record.output_path, port)}
+                  src={thumbnailUrl(record, port)}
                   alt={record.prompt.slice(0, 80)}
                   style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                   onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}

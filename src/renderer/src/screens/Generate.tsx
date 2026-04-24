@@ -126,7 +126,7 @@ export function Generate() {
               seed: event.seed,
               model,
               output_path: event.output_path,
-              thumbnail_path: '',  // thumbnails generated in Plan 6 (Library)
+              thumbnail_path: event.thumbnail_path ?? '',
               created_at: Date.now(),
             })
           }

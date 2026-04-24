@@ -42,7 +42,7 @@ async def generate(request: Request) -> StreamingResponse:
 
     def _err(msg: str) -> str:
         return json.dumps({'status': 'error', 'percent': 0, 'seed': seed,
-                           'output_path': None, 'error': msg, 'prompt': prompt})
+                           'output_path': None, 'thumbnail_path': None, 'error': msg, 'prompt': prompt})
 
     async def event_stream():
         if not manager.is_installed():
@@ -57,7 +57,7 @@ async def generate(request: Request) -> StreamingResponse:
             ready = False
             async with httpx.AsyncClient() as client:
                 while asyncio.get_event_loop().time() < deadline:
-                    yield f'data: {json.dumps({"status": "starting_engine", "percent": 0, "seed": seed, "output_path": None, "error": None, "prompt": prompt})}\n\n'
+                    yield f'data: {json.dumps({"status": "starting_engine", "percent": 0, "seed": seed, "output_path": None, "thumbnail_path": None, "error": None, "prompt": prompt})}\n\n'
                     try:
                         r = await client.get(url, timeout=2.0)
                         if r.status_code == 200:
@@ -85,6 +85,7 @@ async def generate(request: Request) -> StreamingResponse:
                 'percent': p.percent,
                 'seed': p.seed,
                 'output_path': p.output_path,
+                'thumbnail_path': p.thumbnail_path,
                 'error': p.error,
                 'prompt': prompt,
             })
@@ -102,4 +103,14 @@ async def get_output_image(filename: str, request: Request) -> FileResponse:
     safe_path = os.path.join(output_dir, os.path.basename(filename))
     if not os.path.isfile(safe_path):
         raise HTTPException(status_code=404, detail='Image not found')
+    return FileResponse(safe_path)
+
+
+@router.get('/thumbnail/{filename}')
+async def get_thumbnail(filename: str, request: Request) -> FileResponse:
+    output_dir = _runner(request).output_dir
+    thumb_dir = os.path.normpath(os.path.join(output_dir, '..', 'thumbnails'))
+    safe_path = os.path.join(thumb_dir, os.path.basename(filename))
+    if not os.path.isfile(safe_path):
+        raise HTTPException(status_code=404, detail='Thumbnail not found')
     return FileResponse(safe_path)

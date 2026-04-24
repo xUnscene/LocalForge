@@ -1,7 +1,9 @@
+import os
 import pathlib
 import re
 import subprocess
 import sys
+import tempfile
 import time
 
 import httpx
@@ -11,13 +13,16 @@ _SIDECAR_DIR = pathlib.Path(__file__).parent.parent  # sidecar/
 
 
 @pytest.fixture
-def running_sidecar():
+def running_sidecar(tmp_path):
+    env = os.environ.copy()
+    env['LOCALFORGE_ENGINE_DIR'] = str(tmp_path)
     proc = subprocess.Popen(
         [sys.executable, str(_SIDECAR_DIR / 'main.py')],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
         cwd=str(_SIDECAR_DIR),
+        env=env,
     )
     port = None
     deadline = time.time() + 10

@@ -43,10 +43,20 @@ def test_installer_starts_in_idle(tmp_path):
     assert installer.get_progress().phase == 'idle'
 
 
+def _make_mock_popen():
+    mock_proc = MagicMock()
+    mock_proc.stdout = iter([])
+    mock_proc.wait.return_value = 0
+    mock_proc.returncode = 0
+    return mock_proc
+
+
 def test_installer_reports_complete_after_install(tmp_path):
     comfyui_zip = _make_zip({'main.py': b'comfyui', 'requirements.txt': b''})
     lumina_zip = _make_zip({'nodes.py': b'lumina'})
-    with patch('httpx.stream', side_effect=[_mock_stream(comfyui_zip), _mock_stream(lumina_zip)]):
+    with patch('httpx.stream', side_effect=[_mock_stream(comfyui_zip), _mock_stream(lumina_zip)]), \
+         patch('subprocess.run'), \
+         patch('subprocess.Popen', return_value=_make_mock_popen()):
         installer = SetupInstaller(str(tmp_path))
         installer.start()
         phase = _wait_for_phase(installer, {'complete', 'error'})
