@@ -1,43 +1,47 @@
-# LocalForge — Session Summary (2026-04-23, Session 3)
+# LocalForge — Session Summary (2026-04-23, Session 4)
 
 ## What this is
 **LocalForge** — Windows desktop app for local AI image generation. Electron + React + TypeScript frontend, Python FastAPI sidecar, ComfyUI inference backend. Git repo: `f:\AI\Projects\SimpliGen\` → `https://github.com/xUnscene/LocalForge`.
 
 ---
 
-## Status: STABLE — all 67 tests passing, thumbnail generation planned
+## Status: STABLE — thumbnail generation implemented, PR open
 
-`master` is the active branch and has been set as the GitHub default branch. Plans 1–8 from prior sessions are all merged. Generation pipeline fully functional.
+`master` is the active branch. Thumbnail generation is fully implemented on `feature/thumbnail-generation`, PR open on GitHub (create via web UI — `gh` CLI not installed).
 
 ---
 
 ## What was done this session
 
-### 1. Debug instrumentation removed (commit `898a33c`)
-Removed all `[tag]`-prefixed debug `print()` and `console.log()` calls:
-- `sidecar/app.py` — 2 prints removed
-- `sidecar/services/setup_installer.py` — 2 prints removed
-- `sidecar/services/model_manager.py` — 1 print removed
-- `src/main/engine-dir.ts` — console.log + console.error removed
-- `src/renderer/src/screens/Models.tsx` — 2 console.logs removed
-- `src/renderer/src/components/SetupWizard.tsx` — 2 console.logs removed
+### 1. Pre-existing test failures fixed (all on `feature/thumbnail-generation`)
 
-### 2. All 12 pre-existing test failures fixed (commit `5b19b8f`)
-- **ABI mismatch (9 failures):** Added `"pretest": "npm rebuild better-sqlite3"` to `package.json` so tests always run with the Node ABI build. Added `"app:rebuild": "npx electron-builder install-app-deps"` for the Electron ABI build needed to run the app.
-- **setup.test.ts (1 failure):** Test was creating `tmpDir/engine/ComfyUI/` but `isSetupComplete()` checks for `engineDir/ComfyUI/main.py`. Fixed to create the correct path and file.
-- **SetupWizard.test.tsx (4 failures):** `Settings.tsx` calls `window.localforge.settings.getEngineDir()` on mount; mock in `tests/setup.ts` was missing it. Added `getEngineDir: vi.fn().mockResolvedValue('C:\\LocalForge\\engine')`.
+The baseline was broken — 30 of 50 sidecar tests were failing. Root causes found and fixed:
 
-**All 67 tests now pass.** Run: `npm test`
+- **`ComfyUIManager` missing `log_path` param** (`a063e2f`): `app.py` called `ComfyUIManager(engine_dir, log_path=comfyui_log)` but the class didn't accept it. Added `log_path: str | None = None` to `__init__()`, wired into `start()` to redirect ComfyUI stdout/stderr to file.
+- **Integration test using real engine dir** (`cc30cf4`): `test_sidecar_engine_status_not_installed` started the real sidecar without setting `LOCALFORGE_ENGINE_DIR`. ComfyUI is actually installed on this machine, so it returned `stopped` not `not_installed`. Fixed by injecting temp dir via env var. Also fixed `main.py` which was hardcoding the engine dir instead of reading `LOCALFORGE_ENGINE_DIR`.
+- **Installer test timing out on venv creation** (`cc30cf4`): `test_installer_reports_complete_after_install` mocked downloads but let `subprocess.run(['py', '-3.10', '-m', 'venv', ...])` run for real (20-30s). Test waited 5s max. Fixed by mocking `subprocess.run` and `subprocess.Popen`.
+- **`setup.test.ts` wrong path** (`a063e2f`): Test created `{tmpDir}/ComfyUI/main.py` but `isSetupComplete(tmpDir)` checks for `{tmpDir}/engine/ComfyUI`. Fixed to create `{tmpDir}/engine/ComfyUI/`.
 
-> **Note:** After running `npm test`, you must run `npm run app:rebuild` before starting the app (tests rebuild better-sqlite3 for Node ABI; app needs Electron ABI).
+**Baseline after fixes: 50 sidecar + 67 renderer, all passing.**
 
-### 3. Thumbnail generation — designed and planned
-Spec: `docs/superpowers/specs/2026-04-23-thumbnail-generation-design.md`
-Plan: `docs/superpowers/plans/2026-04-23-thumbnail-generation.md`
+### 2. Thumbnail generation implemented (6 tasks, TDD throughout)
 
-**What it does:** After generation completes, sidecar generates a 256px JPEG thumbnail using Pillow and saves it to `<engine_dir>/ComfyUI/thumbnails/`. `thumbnail_path` flows through the SSE `complete` event to the renderer, gets saved to DB. Library grid uses thumbnails; modal keeps full resolution.
+All work on branch `feature/thumbnail-generation`, one commit per task:
 
-**Plan is ready to execute — NOT yet implemented.**
+| Commit | Task |
+|---|---|
+| `5828d82` | Add `Pillow>=11.0` to `sidecar/pyproject.toml` |
+| `5586190` + `21ec94a` | `GenerationRunner._make_thumbnail()` — creates `thumbnails/` sibling dir, 256px max LANCZOS, JPEG quality 85, returns `None` on failure |
+| `db81e94` | `thumbnail_path` in SSE payload + `GET /thumbnail/{filename}` endpoint |
+| `23c7270` | `Generate.tsx` passes `thumbnail_path` from SSE event to `saveRecord()` |
+| `7c617a7` | `Library.tsx` uses `thumbnailUrl()` for grid; modal unchanged |
+
+**Final test counts: 56 sidecar + 70 renderer, 0 failures.**
+
+### 3. PR pushed
+
+Branch `feature/thumbnail-generation` pushed to `origin`. PR URL (create via GitHub web UI):
+`https://github.com/xUnscene/LocalForge/pull/new/feature/thumbnail-generation`
 
 ---
 
@@ -45,15 +49,27 @@ Plan: `docs/superpowers/plans/2026-04-23-thumbnail-generation.md`
 
 ### Image serving
 - Full-res images: `GET /output/{filename}` — served from `<engine_dir>/ComfyUI/output/`
-- Thumbnails (planned): `GET /thumbnail/{filename}` — will serve from `<engine_dir>/ComfyUI/thumbnails/`
+- Thumbnails: `GET /thumbnail/{filename}` — served from `<engine_dir>/ComfyUI/thumbnails/`
 - Generate screen: `outputImageUrl` local state, set on SSE `complete` event
-- Library screen: port fetched on mount, URL built at render time
-- `thumbnail_path` DB column currently always `''` — will be populated after thumbnail plan is implemented
+- Library grid: uses `thumbnailUrl()` helper → `/thumbnail/` URL if `thumbnail_path` set, falls back to `/output/`
+- Library modal: always `outputUrl()` → full resolution
+- `thumbnail_path` DB column populated after generation; old records have `''` (fallback handled)
+
+### Thumbnail file layout
+- Stored at: `<engine_dir>/ComfyUI/thumbnails/<stem>_thumb.jpg`
+- `<engine_dir>/ComfyUI/output/` — full-res images (unchanged)
+- Thumbnail generation silently returns `None` on failure — generation still completes
 
 ### Test setup
 - `npm test` rebuilds better-sqlite3 for Node ABI automatically (`pretest` script)
 - `npm run app:rebuild` rebuilds for Electron ABI (run this before `npm run dev`)
-- 18 test files, 67 tests, all passing
+- 18 test files, 70 tests, all passing (sidecar: 56)
+
+---
+
+## Worktree state
+
+A worktree exists at `f:\AI\Projects\SimpliGen\.worktrees\thumbnail-generation` on branch `feature/thumbnail-generation`. The main workspace (`master`) has large uncommitted changes (in-progress work from a prior session — 16 files, 274 lines). These need to be dealt with before the thumbnail PR can merge cleanly.
 
 ---
 
@@ -70,21 +86,22 @@ Plan: `docs/superpowers/plans/2026-04-23-thumbnail-generation.md`
 ---
 
 ## Git state
-- Local/remote default branch: `master`
-- Latest commits:
-  - `a5f545b` docs: add thumbnail generation implementation plan
-  - `19a2997` docs: add thumbnail generation design spec
-  - `5b19b8f` fix: resolve all 12 pre-existing test failures
-  - `898a33c` chore: remove debug print/console.log instrumentation
-  - `aa9fef2` fix: correct port type, guard img src, add catch to getStatus
+- Active branch for thumbnail work: `feature/thumbnail-generation` (pushed, PR open)
+- Main workspace: `master` (ahead of origin by 6 commits, large uncommitted changes)
+- Worktree: `.worktrees/thumbnail-generation/` (gitignored, preserved)
+- Latest commits on feature branch:
+  - `7c617a7` feat: use thumbnail URL in Library grid, fall back to output URL
+  - `23c7270` feat: pass thumbnail_path from SSE event to saveRecord
+  - `db81e94` feat: add thumbnail_path to SSE payload and GET /thumbnail endpoint
+  - `21ec94a` fix: close converted RGB image in _make_thumbnail
+  - `5586190` feat: generate 256px JPEG thumbnail after image generation
+  - `5828d82` chore: add Pillow dependency to sidecar
+  - `cc30cf4` fix: isolate integration test engine_dir and mock subprocess in installer test
+  - `a063e2f` fix: add log_path to ComfyUIManager and correct setup test path
 
 ---
 
-## Next step
-**Execute the thumbnail generation plan.**
-
-Choose an execution mode:
-1. **Subagent-Driven (recommended)** — fresh subagent per task, review between tasks
-2. **Inline Execution** — execute tasks in-session using executing-plans skill
-
-Plan is at `docs/superpowers/plans/2026-04-23-thumbnail-generation.md` — 6 tasks, fully written with TDD steps and complete code.
+## Next steps
+1. **Merge the thumbnail PR** — review and merge `feature/thumbnail-generation` into `master` via GitHub
+2. **Deal with uncommitted changes on master** — 16 files of in-progress work need to be committed or stashed; investigate what they are before merging thumbnail PR
+3. **Remaining plans** — Plans 2, 6, 7, 8 from `docs/superpowers/plans/` still pending (sidecar, library, settings, packaging)
