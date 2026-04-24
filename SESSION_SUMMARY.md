@@ -1,50 +1,47 @@
-# LocalForge — Session Summary (2026-04-24, Session 6)
+# LocalForge — Session Summary (2026-04-24, Session 7)
 
 ## What this is
 **LocalForge** — Windows desktop app for local AI image generation. Electron + React + TypeScript frontend, Python FastAPI sidecar, ComfyUI inference backend. Git repo: `f:\AI\Projects\SimpliGen\` → `https://github.com/xUnscene/LocalForge`.
 
 ---
 
-## Status: STABLE — all tests passing, app confirmed working end-to-end
+## Status: SHIPPED — installer built and confirmed working
 
-`master` is the active branch. All plans implemented, 70/70 Electron tests + 56/56 sidecar tests passing. App launches and generates images successfully.
+`master` is the active branch. All 126 tests passing. First packaged Windows installer (`dist\LocalForge Setup 1.0.0.exe`) built and confirmed launching successfully.
 
 ---
 
 ## What was done this session
 
-### 1. Fixed Electron test (`tests/main/setup.test.ts`)
+### 1. Pushed master to origin
 
-`isSetupComplete(engineDir)` checks for `join(engineDir, 'ComfyUI', 'main.py')` but the test was passing `tmpDir` (not `join(tmpDir, 'engine')`) as engineDir and never created `main.py`.
+Two commits from session 6 were pending. Pushed cleanly.
 
-- Added `writeFileSync` import
-- Updated "returns true" test to create `{tmpDir}/engine/ComfyUI/main.py` and pass `join(tmpDir, 'engine')` as engineDir
-- **Result: 70/70 npm tests passing**
+### 2. Fixed `build:sidecar` — pyinstaller not on PATH
 
-### 2. Fixed sidecar generate router tests (`sidecar/tests/test_generate_router.py`)
+`pip install pyinstaller` installs to `C:\Users\jonea\AppData\Roaming\Python\Python314\Scripts` which is not on PATH, so bare `pyinstaller` fails.
 
-4 tests were failing because the generate router (added in session 5) checks `manager.is_installed()` / `manager.get_status()` before touching the runner. Tests only mocked `app.state.runner`, not `app.state.manager`, so the is-installed guard short-circuited before runner logic ran.
+**Fix:** Changed `build:sidecar` script in `package.json` to use `py -m PyInstaller` instead of `pyinstaller`.
 
-- Added `_mock_manager()` helper: MagicMock with `is_installed=True`, `get_status='running'`
-- Applied to all 4 affected tests
-- **Result: 56/56 sidecar tests passing**
+### 3. Fixed electron-builder config — silently ignored .config.js
 
-### 3. Diagnosed and fixed app launch failure
+`electron-builder v26` silently ignores `electron-builder.config.js`. The effective config was resolving to `files: []` (falling back to package-everything defaults), which caused it to try to bundle the 4.2GB+ ComfyUI model file into the ASAR archive (ASAR has a 4.2GB per-file limit).
 
-**Root cause:** `ELECTRON_RUN_AS_NODE=1` is set in Claude Code's shell (Claude Code is itself an Electron app). The Electron child process inherits this env var and runs as plain Node.js instead of as an Electron app. In that mode, `require('electron')` returns the binary path string rather than the module, breaking all Electron APIs (`app`, `BrowserWindow`, `ipcMain`, etc.).
+**Fix:**
+- Deleted `electron-builder.config.js`
+- Moved the entire build config into `package.json` under a `"build"` key (electron-builder's highest-priority config location — confirmed by `loaded configuration file=package.json ("build" field)` in output)
+- Added file exclusions: `!localforge/**`, `!sidecar/**`, `!.worktrees/**`, `!.tmp/**`, `!tools/**`, `!workflows/**`
 
-This caused two symptoms that appeared as separate bugs:
-1. `@electron-toolkit/utils` crashed at load time — it evaluates `electron.app.isPackaged` eagerly at module initialization
-2. After removing that package, the app itself crashed — `electron.app.whenReady()` also undefined
+### 4. Built and installed
 
-**Fix:** Removed `@electron-toolkit/utils` dependency and inlined its functionality directly:
-- `is.dev` → `!app.isPackaged` in both `index.ts` and `sidecar.ts`
-- `electronApp.setAppUserModelId(id)` → direct `app.setAppUserModelId(id)` with `process.platform === 'win32'` guard
-- `optimizer.watchWindowShortcuts(win)` → inlined F12-to-DevTools toggle in `index.ts`
+```
+npm run build:sidecar   # PyInstaller → sidecar/dist/localforge-sidecar.exe
+npm run dist:win        # electron-builder → dist/LocalForge Setup 1.0.0.exe
+```
 
-**Also fixed:** `better-sqlite3` ABI mismatch. `npm test` (via `pretest`) rebuilds it for system Node ABI (v137). Electron 36 needs ABI v135. After running tests, must rebuild for Electron before launching the app.
+Installer ran successfully. App opened after install. ✓
 
-**App launch confirmed working end-to-end.** Generation produces images, thumbnails appear in Library.
+**Note:** `npm run build:sidecar` and `npm run dist:win` must be run from your own PowerShell — not through Claude Code's terminal, where `ELECTRON_RUN_AS_NODE=1` is set.
 
 ---
 
@@ -70,15 +67,20 @@ This caused two symptoms that appeared as separate bugs:
 - Model selection: Step 4 in Generate sidebar; defaults to `zimage.safetensors`
 - `thumbnail_path` included in all SSE payloads (null when not yet generated)
 
+### Build workflow
+`npm run build:release` = `npm run build && npm run build:sidecar && npm run dist:win`
+
+Must be run from your own PowerShell (not Claude Code terminal) — `ELECTRON_RUN_AS_NODE=1` is set in Claude Code's shell and breaks Electron builds.
+
 ### Dev workflow — ABI management
-`npm test` rebuilds `better-sqlite3` for **Node ABI** (v137) via `pretest`. Before running the app, rebuild for **Electron ABI** (v135):
+`npm test` rebuilds `better-sqlite3` for **Node ABI** (v137) via `pretest`. Before running the app in dev mode, rebuild for **Electron ABI** (v135):
 
 ```
 npx @electron/rebuild -f -w better-sqlite3 --electron-version 36.9.5
 npm run dev
 ```
 
-`npm run app:rebuild` does the same thing but must be run from a terminal where `ELECTRON_RUN_AS_NODE` is not set (i.e., from your own PowerShell, not through Claude Code).
+Run from your own PowerShell, not through Claude Code.
 
 ---
 
@@ -101,14 +103,13 @@ None.
 ---
 
 ## Git state
-- Active branch: `master` — 2 commits ahead of origin, ready to push
+- Active branch: `master` — up to date with origin
 - Recent commits:
+  - `f1001a1` build: move electron-builder config into package.json, fix pyinstaller path
+  - `18a9b0e` docs: update session summary for session 6
   - `8482ee4` fix: remove @electron-toolkit/utils, inline dev-mode helpers
-  - `8e2937c` fix: repair all failing tests — setup.test.ts path and sidecar generate router mocks
-  - `a91d31f` Merge feature/thumbnail-generation into master
 
 ---
 
 ## Next steps
-1. **Push master to origin** — `git push origin master`
-2. **Package for distribution** — `npm run build:release` (Plan 8 is already implemented)
+No outstanding items. App is packaged and working. Future sessions: feature work or bug fixes as needed.
