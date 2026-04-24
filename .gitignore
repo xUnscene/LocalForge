@@ -15,3 +15,6 @@ sidecar/**/.pytest_cache/
 
 # Generated icon (if converting from PNG via a tool)
 resources/icon.ico
+
+# Git worktrees
+.worktrees/
