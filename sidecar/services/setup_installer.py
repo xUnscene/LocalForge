@@ -118,6 +118,13 @@ class SetupInstaller:
 
     def _run(self) -> None:
         try:
+            result = subprocess.run(['py', '-3.10', '--version'], capture_output=True)
+            if result.returncode != 0:
+                raise RuntimeError(
+                    'Python 3.10 is required but was not found. '
+                    'Download it from https://www.python.org/downloads/ and re-run setup.'
+                )
+
             tmp_dir = os.path.join(self.engine_dir, '.tmp')
             comfyui_zip = os.path.join(tmp_dir, 'comfyui.zip')
             lumina_zip = os.path.join(tmp_dir, 'lumina.zip')
