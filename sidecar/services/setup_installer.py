@@ -1,4 +1,5 @@
 import os
+import subprocess
 import threading
 import zipfile
 from dataclasses import dataclass
@@ -12,6 +13,7 @@ COMFYUI_ZIP_URL = (
 LUMINA_ZIP_URL = (
     'https://github.com/kijai/ComfyUI-LuminaWrapper/archive/refs/heads/main.zip'
 )
+TORCH_INDEX_URL = 'https://download.pytorch.org/whl/cu124'
 
 
 @dataclass
@@ -89,21 +91,67 @@ class SetupInstaller:
                 with self._lock:
                     self._progress.percent = int((i + 1) / len(members) * 100)
 
+    def _pip_install(self, pip: str, args: list[str], phase: str) -> None:
+        """Run a pip install command, pulsing progress as output arrives."""
+        self._set(phase, 5)
+        cmd = [pip, 'install'] + args
+        proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            encoding='utf-8',
+            errors='replace',
+        )
+        pulse = 5
+        lines: list[str] = []
+        for line in proc.stdout:  # type: ignore[union-attr]
+            lines.append(line)
+            pulse = min(pulse + 1, 92)
+            with self._lock:
+                self._progress.percent = pulse
+        proc.wait()
+        if proc.returncode != 0:
+            tail = ''.join(lines[-30:])
+            raise RuntimeError(f'{phase} failed (exit {proc.returncode}):\n{tail}')
+        self._set(phase, 100)
+
     def _run(self) -> None:
         try:
             tmp_dir = os.path.join(self.engine_dir, '.tmp')
             comfyui_zip = os.path.join(tmp_dir, 'comfyui.zip')
             lumina_zip = os.path.join(tmp_dir, 'lumina.zip')
             comfyui_dir = os.path.join(self.engine_dir, 'ComfyUI')
+            venv_dir = os.path.join(comfyui_dir, 'venv')
+            pip = os.path.join(venv_dir, 'Scripts', 'pip.exe')
             lumina_dir = os.path.join(comfyui_dir, 'custom_nodes', 'ComfyUI-LuminaWrapper')
 
             self._download(COMFYUI_ZIP_URL, comfyui_zip, 'downloading_comfyui')
             self._extract(comfyui_zip, comfyui_dir, 'extracting_comfyui')
             os.remove(comfyui_zip)
 
+            # Create venv and install ComfyUI dependencies
+            self._set('creating_venv', 10)
+            subprocess.run(['py', '-3.10', '-m', 'venv', venv_dir], check=True)
+            self._set('creating_venv', 100)
+
+            self._pip_install(pip, [
+                'torch', 'torchvision',
+                '--index-url', TORCH_INDEX_URL,
+            ], 'installing_torch')
+
+            req_txt = os.path.join(comfyui_dir, 'requirements.txt')
+            self._pip_install(pip, ['-r', req_txt], 'installing_comfyui_deps')
+            # 'requests' is not always pulled in transitively but ComfyUI v0.3.43+ requires it
+            self._pip_install(pip, ['requests'], 'installing_comfyui_deps')
+
             self._download(LUMINA_ZIP_URL, lumina_zip, 'downloading_lumina')
             self._extract(lumina_zip, lumina_dir, 'extracting_lumina')
             os.remove(lumina_zip)
+
+            lumina_req = os.path.join(lumina_dir, 'requirements.txt')
+            if os.path.isfile(lumina_req):
+                self._pip_install(pip, ['-r', lumina_req], 'installing_lumina_deps')
 
             try:
                 os.rmdir(tmp_dir)

@@ -23,8 +23,12 @@ const PHASE_LABELS: Record<string, string> = {
   idle: 'Starting...',
   downloading_comfyui: 'Downloading ComfyUI...',
   extracting_comfyui: 'Extracting ComfyUI...',
+  creating_venv: 'Creating Python environment...',
+  installing_torch: 'Installing PyTorch (CUDA) — this may take a few minutes...',
+  installing_comfyui_deps: 'Installing ComfyUI dependencies...',
   downloading_lumina: 'Downloading LuminaWrapper...',
   extracting_lumina: 'Extracting LuminaWrapper...',
+  installing_lumina_deps: 'Installing LuminaWrapper dependencies...',
   complete: 'Complete!',
   error: 'Error',
 }
@@ -34,13 +38,15 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
   const [gpuInfo, setGpuInfo] = useState<GpuInfo | null>(null)
   const [progress, setProgress] = useState<InstallProgress>({ phase: 'idle', percent: 0, error: null })
   const [sidecarPort, setSidecarPort] = useState<number | null>(null)
-  const esRef = useRef<EventSource | null>(null)
+  const [engineDir, setEngineDir] = useState<string | null>(null)
+  const readerRef = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(null)
 
   useEffect(() => {
     window.localforge.sidecar.getStatus().then((s: { port: number | null }) => {
       setSidecarPort(s.port)
     })
-    return () => { esRef.current?.close() }
+    window.localforge.settings.getEngineDir().then(setEngineDir)
+    return () => { readerRef.current?.cancel() }
   }, [])
 
   const fetchGpuInfo = async (port: number) => {
@@ -54,13 +60,23 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
 
   const handleGetStarted = () => {
     setStep('hardware')
-    // Fetch GPU info using current sidecarPort state, or re-fetch the port if not yet set
     if (sidecarPort) {
       fetchGpuInfo(sidecarPort)
     } else {
       window.localforge.sidecar.getStatus().then((s: { port: number | null }) => {
         if (s.port) { setSidecarPort(s.port); fetchGpuInfo(s.port) }
       })
+    }
+  }
+
+  const handleBrowseLocation = async () => {
+    const selected = await window.localforge.settings.browseEngineDir()
+    if (selected) {
+      await window.localforge.settings.setEngineDir(selected)
+      setEngineDir(selected)
+      // Sidecar restarts on engine dir change — refresh the port
+      const s = await window.localforge.sidecar.getStatus()
+      setSidecarPort(s.port)
     }
   }
 
@@ -76,17 +92,29 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
       setProgress({ phase: 'error', percent: 0, error: String(e) })
       return
     }
-    const es = new EventSource(`http://127.0.0.1:${sidecarPort}/setup/progress`)
-    esRef.current = es
-    es.onmessage = (e) => {
-      const p: InstallProgress = JSON.parse(e.data)
-      setProgress(p)
-      if (p.phase === 'complete') {
-        es.close()
-        setStep('ready')
-      } else if (p.phase === 'error') {
-        es.close()
+    try {
+      const response = await fetch(`http://127.0.0.1:${sidecarPort}/setup/progress`)
+      if (!response.ok || !response.body) throw new Error('Progress stream unavailable')
+      const reader = response.body.getReader()
+      readerRef.current = reader
+      const decoder = new TextDecoder()
+      let buffer = ''
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop()!
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue
+          const p: InstallProgress = JSON.parse(line.slice(6))
+          setProgress(p)
+          if (p.phase === 'complete') { reader.cancel(); setStep('ready'); return }
+          if (p.phase === 'error') { reader.cancel(); return }
+        }
       }
+    } catch (e) {
+      setProgress({ phase: 'error', percent: 0, error: String(e) })
     }
   }
 
@@ -96,6 +124,20 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
     borderRadius: 12,
     padding: 40,
     border: '1px solid var(--color-border)',
+  }
+
+  const monoBox: React.CSSProperties = {
+    flex: 1,
+    fontSize: 12,
+    color: 'var(--color-text-primary)',
+    fontFamily: 'var(--font-mono)',
+    background: 'var(--color-bg)',
+    padding: '8px 10px',
+    borderRadius: 'var(--radius)',
+    border: '1px solid var(--color-border)',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap' as const,
   }
 
   return (
@@ -120,7 +162,7 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
             </h1>
             <p style={{ color: 'var(--color-text-secondary)', marginBottom: 24, lineHeight: 1.6 }}>
               Your local AI image studio. We'll download ComfyUI and get everything ready
-              — it takes about 2 minutes.
+              — it takes about 10–20 minutes and ~5GB of disk space.
             </p>
             <button className="btn-primary" onClick={handleGetStarted}>
               Get Started
@@ -164,17 +206,43 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
 
         {step === 'install' && (
           <div data-testid="step-install">
-            <h2 style={{ marginBottom: 16 }}>Installing ComfyUI</h2>
+            <h2 style={{ marginBottom: 16 }}>Install ComfyUI</h2>
+
             {progress.phase === 'idle' && (
               <div>
-                <p style={{ color: 'var(--color-text-secondary)', marginBottom: 16 }}>
-                  Downloads ComfyUI + LuminaWrapper (~800MB total).
+                {/* Install location picker */}
+                <div style={{ marginBottom: 20 }}>
+                  <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginBottom: 6 }}>
+                    Install location
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={monoBox}>{engineDir ?? '...'}</div>
+                    <button
+                      onClick={handleBrowseLocation}
+                      style={{
+                        fontSize: 12,
+                        padding: '6px 14px',
+                        background: 'transparent',
+                        border: '1px solid var(--color-border)',
+                        borderRadius: 'var(--radius)',
+                        color: 'var(--color-text-secondary)',
+                        flexShrink: 0,
+                      }}
+                    >
+                      Browse
+                    </button>
+                  </div>
+                </div>
+
+                <p style={{ color: 'var(--color-text-secondary)', marginBottom: 16, fontSize: 13 }}>
+                  Downloads ComfyUI + LuminaWrapper + PyTorch (CUDA). Requires ~5GB free space.
                 </p>
                 <button className="btn-primary" onClick={startInstall}>
                   Start Install
                 </button>
               </div>
             )}
+
             {progress.phase !== 'idle' && progress.phase !== 'error' && (
               <div>
                 <p style={{ color: 'var(--color-text-secondary)', marginBottom: 12 }}>
@@ -203,6 +271,7 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
                 </p>
               </div>
             )}
+
             {progress.phase === 'error' && (
               <div>
                 <p style={{ color: '#F87171', marginBottom: 12 }}>

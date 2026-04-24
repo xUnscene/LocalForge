@@ -10,7 +10,10 @@ from services.model_manager import ModelManager
 
 def create_app(engine_dir: str | None = None) -> FastAPI:
     if engine_dir is None:
-        engine_dir = os.path.join(os.environ.get('APPDATA', ''), 'LocalForge', 'engine')
+        raw = os.environ.get('LOCALFORGE_ENGINE_DIR')
+        engine_dir = raw or os.path.join(
+            os.environ.get('APPDATA', ''), 'localforge', 'engine'
+        )
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -20,12 +23,13 @@ def create_app(engine_dir: str | None = None) -> FastAPI:
     app = FastAPI(title='LocalForge Sidecar', version='1.0.0', lifespan=lifespan)
     app.add_middleware(
         CORSMiddleware,
-        allow_origin_regex=r'http://localhost:\d+',
+        allow_origins=['*'],
         allow_methods=['*'],
         allow_headers=['*'],
     )
+    comfyui_log = os.path.join(os.environ.get('APPDATA', ''), 'LocalForge', 'comfyui.log')
     app.state.engine_dir = engine_dir
-    app.state.manager = ComfyUIManager(engine_dir)
+    app.state.manager = ComfyUIManager(engine_dir, log_path=comfyui_log)
     app.state.installer = SetupInstaller(engine_dir)
     app.state.runner = GenerationRunner(
         comfyui_url='http://127.0.0.1:8188',

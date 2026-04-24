@@ -10,8 +10,8 @@ MODEL_CATALOG: list[dict] = [
         'name': 'Z-Image (Lumina-2)',
         'description': 'High-quality cinematic image generation optimized for portraiture and scenes.',
         'vram_required_gb': 8,
-        'download_size_gb': 6.5,
-        'repo': 'https://huggingface.co/Alpha-VLLM/Lumina-2.0/resolve/main/lumina2.0.safetensors',
+        'download_size_gb': 10.6,
+        'repo': 'https://huggingface.co/Comfy-Org/Lumina_Image_2.0_Repackaged/resolve/main/all_in_one/lumina_2.safetensors',
         'filename': 'zimage.safetensors',
     },
 ]
@@ -62,6 +62,9 @@ class ModelManager:
             return 'Perfect for your GPU'
         return f'Needs {model["vram_required_gb"]}GB+ VRAM'
 
+    def _catalog_filenames(self) -> set[str]:
+        return {m['filename'] for m in MODEL_CATALOG}
+
     def list_models(self, vram_gb: float | None) -> list[dict]:
         result = []
         for m in MODEL_CATALOG:
@@ -76,7 +79,34 @@ class ModelManager:
                 'size_on_disk_gb': self.size_on_disk_gb(m['id']) if installed else None,
                 'badge': self._badge(m, vram_gb),
             })
+
+        # Append locally imported files not in the catalog
+        ckpt_dir = self._checkpoints_dir()
+        catalog_filenames = self._catalog_filenames()
+        if os.path.isdir(ckpt_dir):
+            for fname in sorted(os.listdir(ckpt_dir)):
+                if not fname.lower().endswith(('.safetensors', '.ckpt', '.pt', '.bin')):
+                    continue
+                if fname in catalog_filenames:
+                    continue
+                path = os.path.join(ckpt_dir, fname)
+                size_gb = round(os.path.getsize(path) / (1024 ** 3), 2)
+                result.append({
+                    'id': fname,
+                    'name': fname,
+                    'description': '',
+                    'vram_required_gb': None,
+                    'download_size_gb': None,
+                    'installed': True,
+                    'size_on_disk_gb': size_gb,
+                    'badge': 'Local',
+                })
+
         return result
+
+    def resolve_checkpoint_filename(self, model_id: str) -> str:
+        model = self._find(model_id)
+        return model['filename'] if model else model_id
 
     def get_progress(self, model_id: str) -> ModelProgress:
         with self._lock:
@@ -102,16 +132,20 @@ class ModelManager:
     def remove(self, model_id: str) -> str | None:
         """Returns error string if not installed or not found, else None."""
         model = self._find(model_id)
-        if model is None:
-            return f'Unknown model: {model_id}'
-        with self._lock:
-            t = self._threads.get(model_id)
-            if t and t.is_alive():
-                return 'Cannot remove: download in progress'
-        path = self._model_path(model)
+        if model is not None:
+            with self._lock:
+                t = self._threads.get(model_id)
+                if t and t.is_alive():
+                    return 'Cannot remove: download in progress'
+            path = self._model_path(model)
+        else:
+            # Local model: id is the filename
+            if not model_id.lower().endswith(('.safetensors', '.ckpt', '.pt', '.bin')):
+                return f'Unknown model: {model_id}'
+            path = os.path.join(self._checkpoints_dir(), model_id)
+
         if not os.path.isfile(path):
             return 'Model not installed'
-        # Also clean up any stale .part file
         part_path = path + '.part'
         if os.path.exists(part_path):
             os.remove(part_path)
@@ -130,7 +164,7 @@ class ModelManager:
         try:
             os.makedirs(self._checkpoints_dir(), exist_ok=True)
             with httpx.stream('GET', model['repo'], follow_redirects=True,
-                              timeout=httpx.Timeout(connect=30.0, read=120.0)) as r:
+                              timeout=httpx.Timeout(None, connect=30.0, read=120.0, write=30.0, pool=30.0)) as r:
                 r.raise_for_status()
                 total = int(r.headers.get('content-length', 0))
                 downloaded = 0

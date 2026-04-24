@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { useModelsStore, ModelInfo } from '../store/models.store'
 
+type ImportState = 'idle' | 'copying' | 'done' | 'error'
+
 export function Models() {
   const {
     models, installStatus, installProgress, installError,
@@ -11,6 +13,8 @@ export function Models() {
   const portRef = useRef<number | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const readerRefs = useRef<Record<string, ReadableStreamDefaultReader<Uint8Array>>>({})
+  const [importState, setImportState] = useState<ImportState>('idle')
+  const [importMessage, setImportMessage] = useState<string | null>(null)
 
   useEffect(() => {
     window.localforge.sidecar.getStatus().then((s: { port: number | null }) => {
@@ -98,15 +102,62 @@ export function Models() {
     }
   }
 
+  const handleImportLocal = async () => {
+    setImportState('copying')
+    setImportMessage(null)
+    try {
+      const files = await window.localforge.models.importLocal()
+      if (!files) {
+        setImportState('idle')
+        return
+      }
+      setImportState('done')
+      setImportMessage(`Imported: ${files.join(', ')}`)
+      const activePort = portRef.current
+      if (activePort) {
+        await loadModels(activePort)
+      }
+      setTimeout(() => { setImportState('idle'); setImportMessage(null) }, 5000)
+    } catch (e) {
+      setImportState('error')
+      setImportMessage(String(e))
+    }
+  }
+
   const badgeColor = (badge: string) => {
     if (badge === 'Perfect for your GPU') return 'var(--color-accent)'
     if (badge === 'GPU required') return 'var(--color-text-secondary)'
+    if (badge === 'Local') return 'var(--color-text-secondary)'
     return '#EAB308'
   }
 
   return (
     <div data-testid="screen-models" style={{ flex: 1, padding: 24, overflow: 'auto' }}>
-      <h1 style={{ color: 'var(--color-text-secondary)', fontWeight: 300, marginBottom: 24 }}>Models</h1>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+        <h1 style={{ color: 'var(--color-text-secondary)', fontWeight: 300, margin: 0 }}>Models</h1>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <button
+            onClick={() => window.localforge.models.openCheckpointsFolder()}
+            style={{ fontSize: 12, padding: '5px 14px', background: 'transparent', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', color: 'var(--color-text-secondary)' }}
+          >
+            Open folder
+          </button>
+          <button
+            onClick={handleImportLocal}
+            disabled={importState === 'copying'}
+            className="btn-primary"
+            style={{ fontSize: 12, padding: '5px 14px' }}
+          >
+            {importState === 'copying' ? 'Copying...' : 'Import local file'}
+          </button>
+        </div>
+      </div>
+
+      {importMessage && (
+        <div style={{ marginBottom: 16, fontSize: 13, color: importState === 'error' ? '#FCA5A5' : 'var(--color-accent)' }}>
+          {importMessage}
+        </div>
+      )}
 
       {loadError && (
         <div style={{ color: '#FCA5A5', marginBottom: 16, fontSize: 13 }}>{loadError}</div>
@@ -174,7 +225,7 @@ export function Models() {
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: isDownloading ? 8 : 0 }}>
                     <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
-                      {model.downloadSizeGb} GB download
+                      {model.downloadSizeGb != null ? `${model.downloadSizeGb} GB download` : ''}
                     </span>
                     <button
                       data-testid={`install-btn-${model.id}`}
