@@ -14,6 +14,7 @@ LUMINA_ZIP_URL = (
     'https://github.com/kijai/ComfyUI-LuminaWrapper/archive/refs/heads/main.zip'
 )
 TORCH_INDEX_URL = 'https://download.pytorch.org/whl/cu124'
+PYTHON_310_URL = 'https://www.python.org/ftp/python/3.10.11/python-3.10.11-amd64.exe'
 
 
 @dataclass
@@ -91,6 +92,40 @@ class SetupInstaller:
                 with self._lock:
                     self._progress.percent = int((i + 1) / len(members) * 100)
 
+    def _get_python310(self, tmp_dir: str) -> list[str]:
+        """Return a Python 3.10 executable argv prefix, installing it silently if needed."""
+        try:
+            r = subprocess.run(['py', '-3.10', '--version'], capture_output=True)
+            if r.returncode == 0:
+                return ['py', '-3.10']
+        except FileNotFoundError:
+            pass
+
+        user_python = os.path.join(
+            os.environ.get('LOCALAPPDATA', ''), 'Programs', 'Python', 'Python310', 'python.exe'
+        )
+        if os.path.isfile(user_python):
+            return [user_python]
+
+        installer = os.path.join(tmp_dir, 'python310.exe')
+        self._download(PYTHON_310_URL, installer, 'downloading_python')
+        self._set('installing_python', 10)
+        proc = subprocess.run(
+            [installer, '/quiet', 'InstallAllUsers=0', 'PrependPath=0'],
+            capture_output=True,
+        )
+        os.remove(installer)
+        if proc.returncode != 0:
+            raise RuntimeError(f'Python 3.10 install failed (exit {proc.returncode})')
+        self._set('installing_python', 100)
+
+        if not os.path.isfile(user_python):
+            raise RuntimeError(
+                'Python 3.10 installed but not found at expected path. '
+                'Try restarting LocalForge.'
+            )
+        return [user_python]
+
     def _pip_install(self, pip: str, args: list[str], phase: str) -> None:
         """Run a pip install command, pulsing progress as output arrives."""
         self._set(phase, 5)
@@ -118,13 +153,6 @@ class SetupInstaller:
 
     def _run(self) -> None:
         try:
-            result = subprocess.run(['py', '-3.10', '--version'], capture_output=True)
-            if result.returncode != 0:
-                raise RuntimeError(
-                    'Python 3.10 is required but was not found. '
-                    'Download it from https://www.python.org/downloads/ and re-run setup.'
-                )
-
             tmp_dir = os.path.join(self.engine_dir, '.tmp')
             comfyui_zip = os.path.join(tmp_dir, 'comfyui.zip')
             lumina_zip = os.path.join(tmp_dir, 'lumina.zip')
@@ -133,13 +161,15 @@ class SetupInstaller:
             pip = os.path.join(venv_dir, 'Scripts', 'pip.exe')
             lumina_dir = os.path.join(comfyui_dir, 'custom_nodes', 'ComfyUI-LuminaWrapper')
 
+            python310 = self._get_python310(tmp_dir)
+
             self._download(COMFYUI_ZIP_URL, comfyui_zip, 'downloading_comfyui')
             self._extract(comfyui_zip, comfyui_dir, 'extracting_comfyui')
             os.remove(comfyui_zip)
 
             # Create venv and install ComfyUI dependencies
             self._set('creating_venv', 10)
-            subprocess.run(['py', '-3.10', '-m', 'venv', venv_dir], check=True)
+            subprocess.run([*python310, '-m', 'venv', venv_dir], check=True)
             self._set('creating_venv', 100)
 
             self._pip_install(pip, [

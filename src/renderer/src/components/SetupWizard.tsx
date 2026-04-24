@@ -21,6 +21,8 @@ interface SetupWizardProps {
 
 const PHASE_LABELS: Record<string, string> = {
   idle: 'Starting...',
+  downloading_python: 'Downloading Python 3.10...',
+  installing_python: 'Installing Python 3.10...',
   downloading_comfyui: 'Downloading ComfyUI...',
   extracting_comfyui: 'Extracting ComfyUI...',
   creating_venv: 'Creating Python environment...',
