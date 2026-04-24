@@ -53,8 +53,8 @@ class GenerationRunner:
             thumb_path = os.path.join(thumb_dir, f'{stem}_thumb.jpg')
             with Image.open(output_path) as img:
                 img.thumbnail((256, 256), Image.LANCZOS)
-                rgb = img.convert('RGB')
-                rgb.save(thumb_path, 'JPEG', quality=85)
+                with img.convert('RGB') as rgb:
+                    rgb.save(thumb_path, 'JPEG', quality=85)
             return thumb_path
         except Exception:
             return None
