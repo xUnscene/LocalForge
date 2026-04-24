@@ -1,7 +1,6 @@
 import { ChildProcess, spawn } from 'child_process'
 import { join } from 'path'
 import { app } from 'electron'
-import { is } from '@electron-toolkit/utils'
 import { getEngineDir } from './engine-dir'
 
 let sidecarProcess: ChildProcess | null = null
@@ -34,8 +33,8 @@ export function startSidecar(): Promise<number> {
     // Use the Windows Python Launcher ('py') in dev so it picks the highest installed Python 3.x,
     // avoiding the system 'python' alias which may point to an older version without dependencies.
     const scriptPath = join(app.getAppPath(), 'sidecar', 'main.py')
-    const cmd = is.dev ? 'py' : join(process.resourcesPath, 'localforge-sidecar.exe')
-    const args = is.dev ? [scriptPath] : []
+    const cmd = !app.isPackaged ? 'py' : join(process.resourcesPath, 'localforge-sidecar.exe')
+    const args = !app.isPackaged ? [scriptPath] : []
 
     const { writeFileSync, appendFileSync } = require('fs')
     const logPath = join(app.getPath('userData'), 'sidecar.log')

@@ -127,6 +127,27 @@ None.
 
 ---
 
+### Diagnosed and fixed app launch failures
+
+**Root cause:** `ELECTRON_RUN_AS_NODE=1` is set in the Claude Code shell environment (Claude Code uses Electron internally). When commands run through Claude, Electron inherits this env var and runs as plain Node.js — `require('electron')` returns the binary path string instead of the module, breaking all Electron APIs.
+
+**Fix 1:** Removed `@electron-toolkit/utils` dependency (first symptom). Inlined the three things it provided:
+- `is.dev` → `!app.isPackaged` directly in source
+- `electronApp.setAppUserModelId` → direct `app.setAppUserModelId` call (Windows-only guard)
+- `optimizer.watchWindowShortcuts` → inlined F12-to-DevTools handler in `index.ts`
+- Package removed from `package.json` and `npm install` run
+
+**Fix 2:** When running from Claude Code, must unset `ELECTRON_RUN_AS_NODE` before electron commands:
+- `env -u ELECTRON_RUN_AS_NODE npm run app:rebuild` for the Electron ABI rebuild
+- `env -u ELECTRON_RUN_AS_NODE npm run dev` to launch the app
+- From the user's own terminal (outside Claude Code), just `npm run dev` works normally
+
+**ABI workflow note:** `npm test` (via `pretest`) rebuilds `better-sqlite3` for Node ABI (v137). Before `npm run dev`, run `npx @electron/rebuild -f -w better-sqlite3 --electron-version 36.9.5` (or `npm run app:rebuild` with ELECTRON_RUN_AS_NODE unset) to rebuild for Electron ABI (v135). Running `app:rebuild` → `npm run dev` in the same Claude shell: use `env -u ELECTRON_RUN_AS_NODE` prefix on both.
+
+**App launch confirmed:** `env -u ELECTRON_RUN_AS_NODE npm run dev` started Electron successfully — no errors.
+
+---
+
 ## Next steps
-1. **Verify app runs end-to-end** — `npm run app:rebuild && npm run dev`, generate an image, confirm thumbnail appears in Library
-2. **Commit & push** — commit the test fixes, push master to origin
+1. **Run the app from your own terminal** — `npx @electron/rebuild -f -w better-sqlite3 --electron-version 36.9.5` then `npm run dev` — generate an image, confirm thumbnail appears in Library
+2. **Push master to origin** — commit with the `@electron-toolkit/utils` removal and test fixes

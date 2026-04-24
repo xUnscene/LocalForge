@@ -1,6 +1,5 @@
 import { app, BrowserWindow, shell } from 'electron'
 import { join } from 'path'
-import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { initDatabase } from './database'
 import { registerIpcHandlers } from './ipc'
 import { startSidecar, stopSidecar } from './sidecar'
@@ -31,16 +30,25 @@ function createWindow(): void {
     return { action: 'deny' }
   })
 
-  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
+  if (!app.isPackaged && process.env['ELECTRON_RENDERER_URL']) {
     win.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
     win.loadFile(join(__dirname, '../renderer/index.html'))
   }
 }
 
+function watchWindowShortcuts(win: BrowserWindow): void {
+  win.webContents.on('before-input-event', (_event, input) => {
+    if (input.type === 'keyDown' && input.code === 'F12') {
+      if (win.webContents.isDevToolsOpened()) win.webContents.closeDevTools()
+      else win.webContents.openDevTools({ mode: 'undocked' })
+    }
+  })
+}
+
 app.whenReady().then(async () => {
-  electronApp.setAppUserModelId('com.localforge.app')
-  app.on('browser-window-created', (_, win) => optimizer.watchWindowShortcuts(win))
+  if (process.platform === 'win32') app.setAppUserModelId('com.localforge.app')
+  app.on('browser-window-created', (_, win) => watchWindowShortcuts(win))
 
   const dbPath = join(app.getPath('userData'), 'localforge.db')
   initDatabase(dbPath)
