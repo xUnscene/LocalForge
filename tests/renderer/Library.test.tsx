@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import '@testing-library/jest-dom'
 import { Library } from '../../src/renderer/src/screens/Library'
 import { useLibraryStore } from '../../src/renderer/src/store/library.store'
@@ -54,5 +54,35 @@ describe('Library', () => {
     expect(useGenerateStore.getState().subject).toBe(MOCK_RECORD.prompt)
     expect(useLibraryStore.getState().selectedId).toBeNull()
     expect(useAppStore.getState().activeScreen).toBe('generate')
+  })
+
+  it('uses /thumbnail/ URL for grid image when thumbnail_path is set', async () => {
+    const recordWithThumb = {
+      ...MOCK_RECORD,
+      thumbnail_path: 'C:\\engine\\ComfyUI\\thumbnails\\gen-1_thumb.jpg',
+    }
+    vi.mocked(window.localforge.db.getAllGenerations).mockResolvedValue([recordWithThumb])
+    vi.mocked(window.localforge.sidecar.getStatus).mockResolvedValue({ status: 'running', port: 8765 })
+    render(<Library />)
+
+    await waitFor(() => {
+      const imgs = document.querySelectorAll('img')
+      const gridImg = Array.from(imgs).find((img) => img.src.includes('/thumbnail/'))
+      expect(gridImg).toBeDefined()
+      expect(gridImg!.src).toContain('http://127.0.0.1:8765/thumbnail/')
+    })
+  })
+
+  it('falls back to /output/ URL when thumbnail_path is empty', async () => {
+    vi.mocked(window.localforge.db.getAllGenerations).mockResolvedValue([MOCK_RECORD])
+    vi.mocked(window.localforge.sidecar.getStatus).mockResolvedValue({ status: 'running', port: 8765 })
+    render(<Library />)
+
+    await waitFor(() => {
+      const imgs = document.querySelectorAll('img')
+      const gridImg = Array.from(imgs).find((img) => img.src.includes('/output/'))
+      expect(gridImg).toBeDefined()
+      expect(gridImg!.src).toContain('http://127.0.0.1:8765/output/')
+    })
   })
 })
